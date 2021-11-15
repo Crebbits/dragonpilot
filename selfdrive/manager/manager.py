@@ -35,10 +35,10 @@ def manager_init():
   params.clear_all(ParamKeyType.CLEAR_ON_MANAGER_START)
 
   default_params = [
-    ("CompletedTrainingVersion", "0"),
-    ("HasAcceptedTerms", "0"),
+    ("CompletedTrainingVersion", training_version),
+    ("HasAcceptedTerms", terms_version),
     ("OpenpilotEnabledToggle", "1"),
-    ("EndToEndToggle", "0"),
+    ("EndToEndToggle", "1"),
     ("ShowDebugUI", "0"),
     ("SpeedLimitControl", "0"),
     ("SpeedLimitPercOffset", "0"),

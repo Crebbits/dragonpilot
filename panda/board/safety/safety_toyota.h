@@ -28,13 +28,15 @@ const int TOYOTA_GAS_INTERCEPTOR_THRSLD = 845;
 
 const CanMsg TOYOTA_TX_MSGS[] = {{0x283, 0, 7}, {0x2E6, 0, 8}, {0x2E7, 0, 8}, {0x33E, 0, 7}, {0x344, 0, 8}, {0x365, 0, 7}, {0x366, 0, 7}, {0x4CB, 0, 8},  // DSU bus 0
                                  {0x128, 1, 6}, {0x141, 1, 4}, {0x160, 1, 8}, {0x161, 1, 7}, {0x470, 1, 4},  // DSU bus 1
+                                 {0x367, 0, 2}, {0x414, 0, 8}, {0x489, 0, 8}, {0x48a, 0, 8}, {0x48b, 0, 8}, {0x4d3, 0, 8}, // CAM bus 0
+                                 {0x130, 1, 7}, {0x240, 1, 7}, {0x241, 1, 7}, {0x244, 1, 7}, {0x245, 1, 7}, {0x248, 1, 7}, {0x466, 1, 3}, // CAM bus 1
                                  {0x2E4, 0, 5}, {0x191, 0, 8}, {0x411, 0, 8}, {0x412, 0, 8}, {0x343, 0, 8}, {0x1D2, 0, 8},  // LKAS + ACC
                                  {0x200, 0, 6}};  // interceptor
 
 AddrCheckStruct toyota_addr_checks[] = {
   {.msg = {{ 0xaa, 0, 8, .check_checksum = false, .expected_timestep = 12000U}, { 0 }, { 0 }}},
   {.msg = {{0x260, 0, 8, .check_checksum = true, .expected_timestep = 20000U}, { 0 }, { 0 }}},
-  {.msg = {{0x1D2, 0, 8, .check_checksum = true, .expected_timestep = 30000U}, { 0 }, { 0 }}},
+  {.msg = {{0x1D3, 0, 8, .check_checksum = true, .expected_timestep = 30000U}, { 0 }, { 0 }}},
   {.msg = {{0x224, 0, 8, .check_checksum = false, .expected_timestep = 25000U},
            {0x226, 0, 8, .check_checksum = false, .expected_timestep = 25000U}, { 0 }}},
 };
@@ -43,6 +45,7 @@ addr_checks toyota_rx_checks = {toyota_addr_checks, TOYOTA_ADDR_CHECKS_LEN};
 
 // global actuation limit states
 int toyota_dbc_eps_torque_factor = 100;   // conversion factor for STEER_TORQUE_EPS in %: see dbc file
+int ego_speed_toyota = 0;
 
 static uint8_t toyota_compute_checksum(CAN_FIFOMailBox_TypeDef *to_push) {
   int addr = GET_ADDR(to_push);
@@ -85,9 +88,9 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
 
     // enter controls on rising edge of ACC, exit controls on ACC off
     // exit controls on rising edge of gas press
-    if (addr == 0x1D2) {
-      // 5th bit is CRUISE_ACTIVE
-      int cruise_engaged = GET_BYTE(to_push, 0) & 0x20;
+    if (addr == 0x1D3) {
+      // 15th bit is MAIN_ON
+      int cruise_engaged = GET_BYTE(to_push, 1) >> 7;
       if (!cruise_engaged) {
         controls_allowed = 0;
       }
@@ -110,7 +113,8 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
         int next_byte = i + 1;  // hack to deal with misra 10.8
         speed += (GET_BYTE(to_push, i) << 8) + GET_BYTE(to_push, next_byte) - 0x1a6f;
       }
-      vehicle_moving = ABS(speed / 4) > TOYOTA_STANDSTILL_THRSLD;
+      ego_speed_toyota = ABS(speed / 4);
+      vehicle_moving = ego_speed_toyota > TOYOTA_STANDSTILL_THRSLD;
     }
 
     // most cars have brake_pressed on 0x226, corolla and rav4 on 0x224
@@ -223,8 +227,14 @@ static int toyota_tx_hook(CAN_FIFOMailBox_TypeDef *to_send) {
       }
 
       // no torque if controls is not allowed
-      if (!controls_allowed && (desired_torque != 0)) {
-        violation = 1;
+      if (!controls_allowed) {
+        if (ego_speed_toyota > 4500){
+          violation |= max_limit_check(desired_torque,805,-805);
+        } else {
+          if (desired_torque != 0){
+            violation = 1;
+          }
+        }
       }
 
       // reset to 0 if either controls is not allowed or there's a violation

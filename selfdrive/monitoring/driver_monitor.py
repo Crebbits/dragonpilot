@@ -8,6 +8,7 @@ from common.filter_simple import FirstOrderFilter
 from common.stat_live import RunningStatFilter
 
 EventName = car.CarEvent.EventName
+awareness_factor = 99999
 
 # ******************************************************************************************
 #  NOTE: To fork maintainers.
@@ -18,12 +19,12 @@ EventName = car.CarEvent.EventName
 class DRIVER_MONITOR_SETTINGS():
   def __init__(self, TICI=TICI, DT_DMON=DT_DMON):
     self._DT_DMON = DT_DMON
-    self._AWARENESS_TIME = 35. # passive wheeltouch total timeout
-    self._AWARENESS_PRE_TIME_TILL_TERMINAL = 12.
-    self._AWARENESS_PROMPT_TIME_TILL_TERMINAL = 6.
-    self._DISTRACTED_TIME = 11. # active monitoring total timeout
-    self._DISTRACTED_PRE_TIME_TILL_TERMINAL = 8.
-    self._DISTRACTED_PROMPT_TIME_TILL_TERMINAL = 6.
+    self._AWARENESS_TIME = 35. * awareness_factor # passive wheeltouch total timeout
+    self._AWARENESS_PRE_TIME_TILL_TERMINAL = 12. * awareness_factor
+    self._AWARENESS_PROMPT_TIME_TILL_TERMINAL = 6. * awareness_factor
+    self._DISTRACTED_TIME = 11. * awareness_factor # active monitoring total timeout
+    self._DISTRACTED_PRE_TIME_TILL_TERMINAL = 8. * awareness_factor
+    self._DISTRACTED_PROMPT_TIME_TILL_TERMINAL = 6. * awareness_factor
 
     self._FACE_THRESHOLD = 0.5
     self._PARTIAL_FACE_THRESHOLD = 0.765 if TICI else 0.43
