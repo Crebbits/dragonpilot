@@ -5,22 +5,22 @@ $Cxx.namespace("cereal");
 
 # dp
 struct DragonConf {
-  dpThermalStarted @0 :Bool;
-  dpThermalOverheat @1 :Bool;
-  dpAtl @2 :Bool;
-  dpAtlOpLong @3 :Bool;
-  dpDashcamd @4 :Bool;
-  dpAutoShutdown @5 :Bool;
-  dpAthenad @6 :Bool;
-  dpUploader @7 :Bool;
-  dpLateralMode @8 :UInt8;
-  dpSignalOffDelay @9 :Float32;
-  dpLcMinMph @10 :UInt8;
-  dpLcAutoMinMph @11 :UInt8;
-  dpLcAutoDelay @12 :Float32;
-  dpLaneLessModeCtrl @13 :Bool;
-  dpLaneLessMode @14 :UInt8;
-  dpAllowGas @15 :Bool;
+  dpAtl @0 :Bool;
+  dpAtlOpLong @1 :Bool;
+  dpDashcamd @2 :Bool;
+  dpAutoShutdown @3 :Bool;
+  dpAthenad @4 :Bool;
+  dpUploader @5 :Bool;
+  dpLateralMode @6 :UInt8;
+  dpSignalOffDelay @7 :Float32;
+  dpLcMinMph @8 :UInt8;
+  dpLcAutoMinMph @9 :UInt8;
+  dpLcAutoDelay @10 :Float32;
+  dpLaneLessModeCtrl @11 :Bool;
+  dpLaneLessMode @12 :UInt8;
+  dpAllowGas @13 :Bool;
+  dpFollowingProfileCtrl @14 :Bool;
+  dpFollowingProfile @15 :UInt8;
   dpAccelProfileCtrl @16 :Bool;
   dpAccelProfile @17 :UInt8;
   dpGearCheck @18 :Bool;

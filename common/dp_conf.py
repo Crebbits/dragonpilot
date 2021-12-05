@@ -12,10 +12,6 @@ from math import floor
 * update_once: True, False (the param will only load up once, need both param and struct defined)
 '''
 confs = [
-  # thermald data
-  {'name': 'dp_thermal_started', 'default': False, 'type': 'Bool', 'conf_type': ['struct']},
-  {'name': 'dp_thermal_overheat', 'default': False, 'type': 'Bool', 'conf_type': ['struct']},
-
   # custom api server
   {'name': 'dp_api_custom', 'default': True, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_api_custom_url', 'default': 'https://api.retropilot.org', 'type': 'Text', 'depends': [{'name': 'dp_api_custom', 'vals': [True]}], 'conf_type': ['param']},
@@ -45,8 +41,8 @@ confs = [
   {'name': 'dp_lane_less_mode', 'default': 2, 'type': 'UInt8', 'min': 0, 'max': 2, 'depends': [{'name': 'dp_lane_less_mode_ctrl', 'vals': [True]}], 'conf_type': ['param', 'struct']},
   # long ctrl
   {'name': 'dp_allow_gas', 'default': True, 'type': 'Bool', 'depends': [{'name': 'dp_atl', 'vals': [False]}], 'conf_type': ['param', 'struct']},
-  #{'name': 'dp_following_profile_ctrl', 'default': False, 'type': 'Bool', 'conf_type': ['param', 'struct']},
-  #{'name': 'dp_following_profile', 'default': 0, 'type': 'UInt8', 'min': 0, 'max': 3, 'depends': [{'name': 'dp_following_profile_ctrl', 'vals': [True]}], 'conf_type': ['param', 'struct']},
+  {'name': 'dp_following_profile_ctrl', 'default': True, 'type': 'Bool', 'conf_type': ['param', 'struct']},
+  {'name': 'dp_following_profile', 'default': 0, 'type': 'UInt8', 'min': 0, 'max': 3, 'depends': [{'name': 'dp_following_profile_ctrl', 'vals': [True]}], 'conf_type': ['param', 'struct']},
   {'name': 'dp_accel_profile_ctrl', 'default': True, 'type': 'Bool', 'conf_type': ['param', 'struct']},
   {'name': 'dp_accel_profile', 'default': 0, 'type': 'UInt8', 'min': 0, 'max': 2, 'depends': [{'name': 'dp_accel_profile_ctrl', 'vals': [True]}], 'conf_type': ['param', 'struct']},
   # safety
@@ -71,7 +67,7 @@ confs = [
   {'name': 'dp_toyota_ldw', 'default': True, 'type': 'Bool', 'conf_type': ['param', 'struct']},
   {'name': 'dp_toyota_sng', 'default': False, 'type': 'Bool', 'conf_type': ['param', 'struct']},
   {'name': 'dp_toyota_zss', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
-  {'name': 'dp_toyota_fp_btn_link', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
+  {'name': 'dp_toyota_fp_btn_link', 'default': True, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_toyota_ap_btn_link', 'default': True, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_toyota_disable_relay', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_toyota_cruise_override', 'default': False, 'type': 'Bool', 'conf_type': ['param', 'struct']},
@@ -124,6 +120,8 @@ confs = [
   {'name': 'dp_nav_full_screen', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_nav_gmap_enable', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_nav_gmap_key', 'default': '', 'type': 'Text', 'conf_type': ['param']},
+  {'name': 'dp_nav_amap_enable', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
+  {'name': 'dp_nav_amap_key', 'default': '', 'type': 'Text', 'conf_type': ['param']},
   {'name': 'dp_nav_style_day', 'default': 'mapbox://styles/rav4kumar/ckv7dtfba6oik15r0w8dh1c1q', 'type': 'Text', 'conf_type': ['param']},
   {'name': 'dp_nav_style_night', 'default': 'mapbox://styles/rav4kumar/ckvsf3f4u0zb414tcz9vof5jc', 'type': 'Text', 'conf_type': ['param']},
 ]
@@ -206,11 +204,11 @@ function to generate support car list
 def get_support_car_list():
   attrs = ['FINGERPRINTS', 'FW_VERSIONS']
   cars = dict({"cars": []})
+  models = []
   for car_folder in [x[0] for x in os.walk('/data/openpilot/selfdrive/car')]:
     try:
       car_name = car_folder.split('/')[-1]
       if car_name != "mock":
-        names = []
         for attr in attrs:
           values = __import__('selfdrive.car.%s.values' % car_name, fromlist=[attr])
           if hasattr(values, attr):
@@ -219,13 +217,12 @@ def get_support_car_list():
             continue
           if isinstance(attr_values, dict):
             for f, v in attr_values.items():
-              if f not in names:
-                names.append(f)
-          names.sort()
-        brand_models = {"brand": car_name.upper(), "models": names }
-        cars["cars"].append(brand_models)
+              if f not in models:
+                models.append(f)
     except (ImportError, IOError, ValueError):
       pass
+  models.sort()
+  cars["cars"] = models
   return json.dumps(cars)
 
 '''

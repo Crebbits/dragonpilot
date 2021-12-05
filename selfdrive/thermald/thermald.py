@@ -257,11 +257,9 @@ def thermald_thread():
 
   dp_auto_shutdown = False
   dp_last_modified_auto_shutdown = None
-  dp_auto_shutdown_last = False
 
   dp_auto_shutdown_in = 90
   dp_last_modified_auto_shutdown_in = None
-  dp_auto_shutdown_in_last = 90
 
   dp_fan_mode = 0
   dp_fan_mode_last = None
@@ -496,31 +494,14 @@ def thermald_thread():
       msg.deviceState.carBatteryCapacityUwh = max(0, power_monitor.get_car_battery_capacity())
 
     # Check if we need to disable charging (handled by boardd)
-    msg.deviceState.chargingDisabled = power_monitor.should_disable_charging(startup_conditions["ignition"], in_car, off_ts)
+    msg.deviceState.chargingDisabled = power_monitor.should_disable_charging(startup_conditions["ignition"], in_car, off_ts, dp_auto_shutdown, dp_auto_shutdown_in)
 
     # Check if we need to shut down
-    if power_monitor.should_shutdown(peripheralState, startup_conditions["ignition"], in_car, off_ts, started_seen, LEON):
+    if power_monitor.should_shutdown(peripheralState, startup_conditions["ignition"], in_car, off_ts, started_seen, LEON, dp_auto_shutdown, dp_auto_shutdown_in):
       cloudlog.info(f"shutting device down, offroad since {off_ts}")
       # TODO: add function for blocking cloudlog instead of sleep
       time.sleep(10)
       HARDWARE.shutdown()
-
-    # dp - auto shutdown
-    # reset off_ts if we change auto shutdown related params
-    if off_ts is not None:
-      if dp_auto_shutdown:
-        shutdown_sec = dp_auto_shutdown_in * 60
-        sec_now = sec_since_boot() - off_ts
-        if (shutdown_sec - 5) < sec_now:
-          msg.deviceState.chargingDisabled = True
-        if shutdown_sec < sec_now:
-          time.sleep(10)
-          HARDWARE.shutdown()
-
-      if dp_auto_shutdown_in_last != dp_auto_shutdown_in or dp_auto_shutdown_last != dp_auto_shutdown:
-        off_ts = sec_since_boot()
-      dp_auto_shutdown_last = dp_auto_shutdown
-      dp_auto_shutdown_in_last = dp_auto_shutdown_in
 
     # If UI has crashed, set the brightness to reasonable non-zero value
     ui_running = "ui" in (p.name for p in sm["managerState"].processes if p.running)

@@ -1,7 +1,10 @@
-<div style="padding: 5px;">Set your mapbox <b>PUBLIC TOKEN</b></div>
-<div style="padding: 5px;">(begin with <b>pk.</b>)</div>
-<div style="padding: 5px; color: red; font-weight: bold;">{{msg}}</div>
 <form name="setPkTokenForm" method="post">
-<div style="padding: 5px;"><input type="text" name="pk_token_val" placeholder="Your Token"><input type="submit" value="Set"></div>
-<div style="padding: 5px;"></div>
+    <fieldset class="uk-fieldset">
+        <legend class="uk-legend">Set your Mapbox <b>PUBLIC TOKEN</b></legend>
+        <div style="padding: 5px; color: red; font-weight: bold;">{{msg}}</div>
+        <div class="uk-margin">
+            <input class="uk-input" type="text" name="pk_token_val" placeholder="e.g.: pk.xxxxxxx...">
+            <input class="uk-button uk-button-primary uk-width-1-1 uk-margin-small-bottom" type="submit" value="Set">
+        </div>
+    </fieldset>
 </form>

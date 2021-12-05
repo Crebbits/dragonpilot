@@ -42,6 +42,7 @@ def get_can_signals(CP, gearbox_msg, main_on_sig_msg):
     ("MAIN_ON", main_on_sig_msg, 0),
     #dp
     ("ENGINE_RPM", "POWERTRAIN_DATA", 0),
+    ("HUD_LEAD", "ACC_HUD", 0),
   ]
 
   checks = [
@@ -116,7 +117,7 @@ def get_can_signals(CP, gearbox_msg, main_on_sig_msg):
     signals += [("DRIVERS_DOOR_OPEN", "SCM_FEEDBACK", 1)]
   elif CP.carFingerprint == CAR.ODYSSEY_CHN:
     signals += [("DRIVERS_DOOR_OPEN", "SCM_BUTTONS", 1)]
-  elif CP.carFingerprint in (CAR.FREED, CAR.HRV):
+  elif CP.carFingerprint in (CAR.FREED, CAR.HRV, CAR.JADE):
     signals += [("DRIVERS_DOOR_OPEN", "SCM_BUTTONS", 1),
                 ("WHEELS_MOVING", "STANDSTILL", 1)]
   else:
@@ -167,7 +168,7 @@ class CarState(CarStateBase):
 
     self.main_on_sig_msg = "SCM_FEEDBACK"
     if CP.carFingerprint in (CAR.ACURA_ILX, CAR.ACURA_RDX, CAR.CRV, CAR.CRV_EU, CAR.FIT, CAR.FREED, CAR.HRV,
-                             CAR.ODYSSEY_CHN, CAR.PILOT, CAR.PILOT_2019, CAR.RIDGELINE):
+                             CAR.ODYSSEY_CHN, CAR.PILOT, CAR.PILOT_2019, CAR.RIDGELINE, CAR.JADE):
       self.main_on_sig_msg = "SCM_BUTTONS"
 
     self.shifter_values = can_define.dv[self.gearbox_msg]["GEAR_SHIFTER"]
@@ -183,6 +184,7 @@ class CarState(CarStateBase):
     self.lead_distance = 0.
     self.engineRPM = 0
     self.dp_honda_kmh_display = Params().get_bool('dp_honda_kmh_display')
+    self.hud_lead = 0
 
   def update(self, cp, cp_cam, cp_body):
     ret = car.CarState.new_message()
@@ -203,7 +205,7 @@ class CarState(CarStateBase):
     elif self.CP.carFingerprint == CAR.ODYSSEY_CHN:
       ret.standstill = cp.vl["ENGINE_DATA"]["XMISSION_SPEED"] < 0.1
       ret.doorOpen = bool(cp.vl["SCM_BUTTONS"]["DRIVERS_DOOR_OPEN"])
-    elif self.CP.carFingerprint in (CAR.FREED, CAR.HRV):
+    elif self.CP.carFingerprint in (CAR.FREED, CAR.HRV, CAR.JADE):
       ret.standstill = not cp.vl["STANDSTILL"]["WHEELS_MOVING"]
       ret.doorOpen = bool(cp.vl["SCM_BUTTONS"]["DRIVERS_DOOR_OPEN"])
     else:
@@ -222,7 +224,11 @@ class CarState(CarStateBase):
     if not self.CP.openpilotLongitudinalControl:
       self.brake_error = 0
     else:
-      self.brake_error = cp.vl["STANDSTILL"]["BRAKE_ERROR_1"] or cp.vl["STANDSTILL"]["BRAKE_ERROR_2"]
+      # dp - Rick - ignore check for crv_hybrid, loveloveses has issue with this signal.
+      if self.CP.carFingerprint in (CAR.CRV_HYBRID):
+        self.brake_error = 0
+      else:
+        self.brake_error = cp.vl["STANDSTILL"]["BRAKE_ERROR_1"] or cp.vl["STANDSTILL"]["BRAKE_ERROR_2"]
     ret.espDisabled = cp.vl["VSA_STATUS"]["ESP_DISABLED"] != 0
 
     speed_factor = SPEED_FACTOR.get(self.CP.carFingerprint, 1.)
@@ -309,8 +315,11 @@ class CarState(CarStateBase):
     ret.cruiseState.available = bool(cp.vl[self.main_on_sig_msg]["MAIN_ON"])
     ret.cruiseActualEnabled = ret.cruiseState.enabled
 
+    # afa feature
+    self.hud_lead = cp.vl["ACC_HUD"]['HUD_LEAD']
+
     # Gets rid of Pedal Grinding noise when brake is pressed at slow speeds for some models
-    if self.CP.carFingerprint in (CAR.PILOT, CAR.PILOT_2019, CAR.RIDGELINE):
+    if self.CP.carFingerprint in (CAR.PILOT, CAR.PILOT_2019, CAR.RIDGELINE, CAR.JADE):
       if ret.brake > 0.05:
         ret.brakePressed = True
 
@@ -322,7 +331,7 @@ class CarState(CarStateBase):
     else:
       self.is_metric = False
 
-    if self.dp_honda_kmh_display:
+    if self.dp_honda_kmh_display or self.CP.carFingerprint == CAR.JADE:
       self.is_metric = True
 
     if self.CP.carFingerprint in HONDA_BOSCH:
@@ -334,17 +343,19 @@ class CarState(CarStateBase):
       self.stock_hud = False
       ret.stockFcw = False
 
-      #brakelights for HONDA BOSCH
       self.brake_switch = cp.vl["POWERTRAIN_DATA"]['BRAKE_SWITCH'] != 0
-      self.brake_lights = cp.vl["ACC_CONTROL"]['BRAKE_LIGHTS'] != 0
       self.user_brake = cp.vl["VSA_STATUS"]['USER_BRAKE']
-
+      #brakelights for HONDA BOSCH without voacc
+      if not self.CP.openpilotLongitudinalControl:
+        self.brake_lights = cp.vl["ACC_CONTROL"]['BRAKE_LIGHTS'] != 0
+      else:
+        self.brake_lights = False
     else:
       ret.stockFcw = cp_cam.vl["BRAKE_COMMAND"]["FCW"] != 0
       self.stock_hud = cp_cam.vl["ACC_HUD"]
       self.stock_brake = cp_cam.vl["BRAKE_COMMAND"]
 
-    if self.CP.enableBsm and self.CP.carFingerprint in (CAR.CRV_5G, ):
+    if self.CP.enableBsm and self.CP.carFingerprint in (CAR.CRV_5G, CAR.CRV_HYBRID, ):
       # BSM messages are on B-CAN, requires a panda forwarding B-CAN messages to CAN 0
       # more info here: https://github.com/commaai/openpilot/pull/1867
       ret.leftBlindspot = cp_body.vl["BSM_STATUS_LEFT"]["BSM_ALERT"] == 1
@@ -382,7 +393,7 @@ class CarState(CarStateBase):
 
   @staticmethod
   def get_body_can_parser(CP):
-    if CP.enableBsm and CP.carFingerprint in (CAR.CRV_5G, ):
+    if CP.enableBsm and CP.carFingerprint in (CAR.CRV_5G, CAR.CRV_HYBRID, ):
       signals = [("BSM_ALERT", "BSM_STATUS_RIGHT", 0),
                  ("BSM_ALERT", "BSM_STATUS_LEFT", 0)]
 

@@ -88,11 +88,13 @@ def register(show_spinner=False) -> str:
         break
       except Exception:
         cloudlog.exception("failed to authenticate")
-        backoff = min(backoff + 1, 15)
-        time.sleep(backoff)
+        return UNREGISTERED_DONGLE_ID
 
-      if time.monotonic() - start_time > 60 and show_spinner:
-        spinner.update(f"registering device - serial: {serial}, IMEI: ({imei1}, {imei2})")
+        # backoff = min(backoff + 1, 15)
+        # time.sleep(backoff)
+
+      # if time.monotonic() - start_time > 60 and show_spinner:
+      #   spinner.update(f"registering device - serial: {serial}, IMEI: ({imei1}, {imei2})")
 
     if show_spinner:
       spinner.close()

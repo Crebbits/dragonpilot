@@ -133,8 +133,6 @@ def manager_thread():
   dp_jetson = params.get_bool('dp_jetson')
   dp_otisserv = params.get_bool('dp_otisserv')
   dp_mapd = params.get_bool('dp_mapd')
-  if not params.get_bool('dp_api_custom') and dp_atl:
-    dp_reg = False
   if not dp_reg:
     dp_athenad = False
     dp_uploader = False

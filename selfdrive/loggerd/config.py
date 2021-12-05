@@ -8,7 +8,8 @@ if os.environ.get('LOG_ROOT', False):
 elif PC:
   ROOT = os.path.join(str(Path.home()), ".comma", "media", "0", "realdata")
 else:
-  if Params().get_bool('dp_atl') or Params().get('dp_jetson'):
+  params = Params()
+  if params.get_bool('dp_atl') or params.get_bool('dp_jetson') or params.get_bool('dp_api_custom'):
     ROOT = '/data/media/0/fakedata/'
   else:
     ROOT = '/data/media/0/realdata/'

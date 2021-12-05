@@ -1,12 +1,16 @@
-dragonpilot 0.8.10-1
+dragonpilot 0.8.10
 ========================
 * Based on openpilot 0.8.10 devel.
-* FIXED: Device w/ battery no longer need to set auto shutdown to 1 min.
+* Reimplement: Following Distance.
+* Better Subaru support. (Thanks to @martinl https://github.com/martinl/openpilot)
+* NAV: Added use of Navigation tab to access home/work/recent dest.
 * NAV: Added auto Day/Night Mode.
 * NAV: Added customizable style.
+* NAV: Added Gaode/amap Search. (Thanks to @loveloveses)
+* FIXED: Device w/ battery no longer need to set auto shutdown to 1 min.
+* FIXED: Auto shutdown while on bench (Thanks to @sunnyhaibin)
 * REMOVED: Timebomb feature for VW.
 * REMOVED: Support of running Android apps.
-* ISSUED: Following Profile is disabled. (Waiting for re-implementation)
 
 dragonpilot 0.8.9-3
 ========================

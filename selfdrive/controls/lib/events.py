@@ -242,7 +242,7 @@ def alca_alert(CP: car.CarParams, sm: messaging.SubMaster, metric: bool) -> Aler
 def speed_limit_adjust_alert(CP: car.CarParams, sm: messaging.SubMaster, metric: bool) -> Alert:
   speedLimit = sm['longitudinalPlan'].speedLimit
   speed = round(speedLimit * (CV.MS_TO_KPH if metric else CV.MS_TO_MPH))
-  message = f'Adjusting to {speed} {"km/h" if metric else "mph"} speed limit'
+  message = _("Adjusting to %(speed)s %(unit)s") % ({"speed": speed, "unit": (_("km/h") if metric else _("mph"))})
   return Alert(
     message,
     "",
@@ -266,7 +266,7 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
   },
 
   EventName.controlsInitializing: {
-    ET.NO_ENTRY: NoEntryAlert("Controls Initializing"),
+    ET.NO_ENTRY: NoEntryAlert(_("Controls Initializing")),
   },
 
   EventName.startup: {
@@ -394,8 +394,8 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
   # This alert is thrown when any of these values exceed a sanity check. This can be caused by
   # bad alignment or bad sensor data. If this happens consistently consider creating an issue on GitHub
   EventName.vehicleModelInvalid: {
-    ET.NO_ENTRY: NoEntryAlert("Vehicle Parameter Identification Failed"),
-    ET.SOFT_DISABLE: SoftDisableAlert("Vehicle Parameter Identification Failed"),
+    ET.NO_ENTRY: NoEntryAlert(_("Vehicle Parameter Identification Failed")),
+    ET.SOFT_DISABLE: SoftDisableAlert(_("Vehicle Parameter Identification Failed")),
     ET.WARNING: Alert(
       _("Vehicle Parameter Identification Failed"),
       "",
@@ -543,7 +543,7 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
 
   EventName.speedLimitActive: {
     ET.WARNING: Alert(
-      "Cruise set to speed limit",
+      _("Cruise set to speed limit"),
       "",
       AlertStatus.normal, AlertSize.small,
       Priority.LOW, VisualAlert.none, AudibleAlert.none, 1., 0., 2.),
@@ -747,7 +747,7 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
   EventName.highCpuUsage: {
     #ET.SOFT_DISABLE: SoftDisableAlert("System Malfunction: Reboot Your Device"),
     #ET.PERMANENT: NormalPermanentAlert("System Malfunction", "Reboot your Device"),
-    ET.NO_ENTRY: NoEntryAlert("System Malfunction: Reboot Your Device",
+    ET.NO_ENTRY: NoEntryAlert(_("System Malfunction: Reboot Your Device"),
                               audible_alert=AudibleAlert.chimeDisengage),
   },
 

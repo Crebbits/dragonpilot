@@ -59,11 +59,8 @@ def confd_thread():
   last_modified_check = None
   started = False
   free_space = 1
-  battery_percent = 0
-  overheat = False
   last_started = False
   dashcamd = Dashcamd()
-  appd = Appd()
   is_eon = EON
   rk = Ratekeeper(HERTZ, print_delay_threshold=None)  # Keeps rate at 2 hz
   uploader_thread = None
@@ -79,13 +76,14 @@ def confd_thread():
 
     '''
     ===================================================
-    load thermald data every 3 seconds
+    load thermalState data every 3 seconds
     ===================================================
     '''
     if frame % (HERTZ * 3) == 0:
-      started, free_space, battery_percent, overheat = pull_thermald(frame, sm, started, free_space, battery_percent, overheat)
-    setattr(msg.dragonConf, get_struct_name('dp_thermal_started'), started)
-    setattr(msg.dragonConf, get_struct_name('dp_thermal_overheat'), overheat)
+      sm.update(0)
+      if sm.updated['deviceState']:
+        started = sm['deviceState'].started
+        free_space = sm['deviceState'].freeSpacePercent
     '''
     ===================================================
     hotspot on boot
@@ -217,16 +215,6 @@ def process_charging_ctrl(msg, last_charging_ctrl, battery_percent):
     elif battery_percent <= msg.dragonConf.dpChargingAt and not HARDWARE.get_battery_charging():
       HARDWARE.set_battery_charging(True)
   return charging_ctrl
-
-
-def pull_thermald(frame, sm, started, free_space, battery_percent, overheat):
-  sm.update(0)
-  if sm.updated['deviceState']:
-    started = sm['deviceState'].started
-    free_space = sm['deviceState'].freeSpacePercent
-    battery_percent = sm['deviceState'].batteryPercent
-    overheat = sm['deviceState'].thermalStatus >= 2
-  return started, free_space, battery_percent, overheat
 
 def update_custom_logic(msg):
   if msg.dragonConf.dpAtl:
