@@ -1,3 +1,7 @@
+dragonpilot 0.8.10-3
+========================
+* NAV: Gaode/amap to use new key combination. (Thanks to @loveloveses)
+
 dragonpilot 0.8.10
 ========================
 * Based on openpilot 0.8.10 devel.

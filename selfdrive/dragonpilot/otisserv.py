@@ -67,7 +67,7 @@ class OtisServ(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
-        if self.get_amap_key() is None:
+        if self.get_amap_key() is None or self.get_amap_key_2() is None:
           self.display_page_amap_key()
           return
         if self.get_app_token() is None:
@@ -121,11 +121,14 @@ class OtisServ(BaseHTTPRequestHandler):
 
     if use_amap:
       # amap token
-      if self.get_amap_key() is None:
-        if postvars is None or "amap_key_val" not in postvars or postvars.get("amap_key_val")[0] == "":
+      if self.get_amap_key() is None or self.get_amap_key_2() is None:
+        if postvars is None or \
+                ("amap_key_val" not in postvars or postvars.get("amap_key_val")[0] == "") or \
+                ("amap_key_val_2" not in postvars or postvars.get("amap_key_val_2")[0] == ""):
           self.display_page_amap_key()
           return
         params.put('dp_nav_amap_key', postvars.get("amap_key_val")[0])
+        params.put('dp_nav_amap_key_2', postvars.get("amap_key_val_2")[0])
 
     elif use_gmap:
       # gmap token
@@ -221,6 +224,12 @@ class OtisServ(BaseHTTPRequestHandler):
       return token.rstrip('\x00')
     return None
 
+  def get_amap_key_2(self):
+    token = params.get("dp_nav_amap_key_2", encoding='utf8')
+    if token is not None and token != "":
+      return token.rstrip('\x00')
+    return None
+
   def get_public_token(self):
     token = params.get("dp_nav_mapbox_token_pk", encoding='utf8')
     if token is not None and token != "":
@@ -263,7 +272,7 @@ class OtisServ(BaseHTTPRequestHandler):
     self.wfile.write(bytes(self.get_parsed_template("gmap/index.html", {"{{gmap_key}}": self.get_gmap_key()}), "utf-8"))
 
   def display_page_amap(self):
-    self.wfile.write(bytes(self.get_parsed_template("amap/index.html", {"{{amap_key}}": self.get_amap_key()}), "utf-8"))
+    self.wfile.write(bytes(self.get_parsed_template("amap/index.html", {"{{amap_key}}": self.get_amap_key(), "{{amap_key_2}}": self.get_amap_key_2()}), "utf-8"))
 
   def get_parsed_template(self, name, replace = {}):
     f = open('%s/selfdrive/dragonpilot/tpl/%s.tpl' % (BASEDIR, name), mode='r', encoding='utf-8')

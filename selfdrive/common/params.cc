@@ -296,6 +296,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"dp_nav_gmap_key", PERSISTENT},
     {"dp_nav_amap_enable", PERSISTENT},
     {"dp_nav_amap_key", PERSISTENT},
+    {"dp_nav_amap_key_2", PERSISTENT},
     {"dp_nav_style_day", PERSISTENT},
     {"dp_nav_style_night", PERSISTENT},
 };

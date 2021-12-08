@@ -12,6 +12,11 @@
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.9.2/dist/js/uikit.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.9.2/dist/js/uikit-icons.min.js"></script>
     <link rel="stylesheet" href="./style.css"/>
+    <script type="text/javascript">
+            window._AMapSecurityConfig = {
+                securityJsCode:'{{amap_key_2}}',
+            }
+    </script>
     <script type="text/javascript"
             src="https://webapi.amap.com/maps?v=1.4.2&key={{amap_key}}"></script>
     <style type="text/css">
