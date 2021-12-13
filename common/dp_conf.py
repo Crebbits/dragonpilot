@@ -122,6 +122,7 @@ confs = [
   {'name': 'dp_nav_gmap_key', 'default': '', 'type': 'Text', 'conf_type': ['param']},
   {'name': 'dp_nav_amap_enable', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_nav_amap_key', 'default': '', 'type': 'Text', 'conf_type': ['param']},
+  {'name': 'dp_nav_amap_key_2', 'default': '', 'type': 'Text', 'conf_type': ['param']},
   {'name': 'dp_nav_style_day', 'default': 'mapbox://styles/rav4kumar/ckv7dtfba6oik15r0w8dh1c1q', 'type': 'Text', 'conf_type': ['param']},
   {'name': 'dp_nav_style_night', 'default': 'mapbox://styles/rav4kumar/ckvsf3f4u0zb414tcz9vof5jc', 'type': 'Text', 'conf_type': ['param']},
 ]
