@@ -18,7 +18,7 @@ from selfdrive.controls.lib.events import Events
 from selfdrive.swaglog import cloudlog
 
 LON_MPC_STEP = 0.2  # first step is 0.2s
-AWARENESS_DECEL = -0.2     # car smoothly decel at .2m/s^2 when user is distracted
+AWARENESS_DECEL = -0.2  # car smoothly decel at .2m/s^2 when user is distracted
 A_CRUISE_MIN = -1.2
 A_CRUISE_MAX_VALS = [1.2, 1.2, 0.8, 0.6]
 A_CRUISE_MAX_BP = [0., 15., 25., 40.]
@@ -28,10 +28,10 @@ _A_TOTAL_MAX_V = [1.7, 3.2]
 _A_TOTAL_MAX_BP = [20., 40.]
 
 DP_FOLLOWING_DIST = {
-  0: 1.2,
-  1: 1.5,
-  2: 1.8,
-  3: 2.2,
+  0: 1.0,
+  1: 1.2,
+  2: 1.4,
+  3: 1.8,
 }
 
 DP_ACCEL_ECO = 0
@@ -72,13 +72,13 @@ def limit_accel_in_turns(v_ego, angle_steers, a_target, CP):
   """
 
   a_total_max = interp(v_ego, _A_TOTAL_MAX_BP, _A_TOTAL_MAX_V)
-  a_y = v_ego**2 * angle_steers * CV.DEG_TO_RAD / (CP.steerRatio * CP.wheelbase)
-  a_x_allowed = math.sqrt(max(a_total_max**2 - a_y**2, 0.))
+  a_y = v_ego ** 2 * angle_steers * CV.DEG_TO_RAD / (CP.steerRatio * CP.wheelbase)
+  a_x_allowed = math.sqrt(max(a_total_max ** 2 - a_y ** 2, 0.))
 
   return [a_target[0], min(a_target[1], a_x_allowed)]
 
 
-class Planner():
+class Planner:
   def __init__(self, CP, init_v=0.0, init_a=0.0):
     self.CP = CP
     self.mpc = LongitudinalMpc()
@@ -87,7 +87,7 @@ class Planner():
 
     self.v_desired = init_v
     self.a_desired = init_a
-    self.alpha = np.exp(-DT_MDL/2.0)
+    self.alpha = np.exp(-DT_MDL / 2.0)
 
     self.v_desired_trajectory = np.zeros(CONTROL_N)
     self.a_desired_trajectory = np.zeros(CONTROL_N)
@@ -98,22 +98,21 @@ class Planner():
     self.dp_accel_profile = DP_ACCEL_ECO
     self.dp_following_profile_ctrl = False
     self.dp_following_profile = 2
-    self.dp_following_dist = 1.8 # default val
     self.cruise_source = 'cruise'
     self.vision_turn_controller = VisionTurnController(CP)
     self.speed_limit_controller = SpeedLimitController()
     self.events = Events()
     self.turn_speed_controller = TurnSpeedController()
 
-  def update(self, sm, CP):
+  def update(self, sm):
+    v_ego = sm['carState'].vEgo
+    a_ego = sm['carState'].aEgo
     # dp
     self.dp_accel_profile_ctrl = sm['dragonConf'].dpAccelProfileCtrl
     self.dp_accel_profile = sm['dragonConf'].dpAccelProfile
     self.dp_following_profile_ctrl = sm['dragonConf'].dpFollowingProfileCtrl
-    self.dp_following_profile = sm['dragonConf'].dpFollowingProfile
-
-    v_ego = sm['carState'].vEgo
-    a_ego = sm['carState'].aEgo
+    if self.dp_following_profile_ctrl:
+      self.dp_following_profile = sm['dragonConf'].dpFollowingProfile
 
     v_cruise_kph = sm['controlsState'].vCruise
     v_cruise_kph = min(v_cruise_kph, V_CRUISE_MAX)
@@ -122,23 +121,26 @@ class Planner():
     long_control_state = sm['controlsState'].longControlState
     force_slow_decel = sm['controlsState'].forceDecel
 
-    enabled = (long_control_state == LongCtrlState.pid) or (long_control_state == LongCtrlState.stopping)
-    if not enabled or sm['carState'].gasPressed:
+    prev_accel_constraint = True
+    disabled = long_control_state == LongCtrlState.off or sm['carState'].gasPressed
+    if disabled:
       self.v_desired = v_ego
       self.a_desired = a_ego
+      # Smoothly changing between accel trajectory is only relevant when OP is driving
+      prev_accel_constraint = False
 
     # Prevent divergence, smooth in current v_ego
     self.v_desired = self.alpha * self.v_desired + (1 - self.alpha) * v_ego
     self.v_desired = max(0.0, self.v_desired)
 
     # Get acceleration and active solutions for custom long mpc.
-    self.cruise_source, a_min_sol, v_cruise_sol = self.cruise_solutions(enabled, self.v_desired, self.a_desired,
+    self.cruise_source, a_min_sol, v_cruise_sol = self.cruise_solutions(not disabled, self.v_desired, self.a_desired,
                                                                         v_cruise, sm)
 
     if not self.dp_accel_profile_ctrl:
       accel_limits = [A_CRUISE_MIN, get_max_accel(v_ego)]
     else:
-      accel_limits = dp_calc_cruise_accel_limits(v_cruise, self.dp_accel_profile)
+      accel_limits = dp_calc_cruise_accel_limits(v_ego, self.dp_accel_profile)
     accel_limits_turns = limit_accel_in_turns(v_ego, sm['carState'].steeringAngleDeg, accel_limits, self.CP)
     if force_slow_decel:
       # if required so, force a smooth deceleration
@@ -150,13 +152,13 @@ class Planner():
     accel_limits_turns[1] = max(accel_limits_turns[1], self.a_desired - 0.05)
     self.mpc.set_accel_limits(accel_limits_turns[0], accel_limits_turns[1])
     self.mpc.set_cur_state(self.v_desired, self.a_desired)
-    self.mpc.update(sm['carState'], sm['radarState'], v_cruise_sol)
-    self.mpc.set_desired_TR(1.8 if not self.dp_following_profile_ctrl else self.dp_following_profile)
+    self.mpc.update(sm['carState'], sm['radarState'], v_cruise_sol, prev_accel_constraint=prev_accel_constraint)
+    self.mpc.set_desired_TR(DP_FOLLOWING_DIST[self.dp_following_profile])
     self.v_desired_trajectory = np.interp(T_IDXS[:CONTROL_N], T_IDXS_MPC, self.mpc.v_solution)
     self.a_desired_trajectory = np.interp(T_IDXS[:CONTROL_N], T_IDXS_MPC, self.mpc.a_solution)
     self.j_desired_trajectory = np.interp(T_IDXS[:CONTROL_N], T_IDXS_MPC[:-1], self.mpc.j_solution)
 
-    #TODO counter is only needed because radar is glitchy, remove once radar is gone
+    # TODO counter is only needed because radar is glitchy, remove once radar is gone
     self.fcw = self.mpc.crash_cnt > 5
     if self.fcw:
       cloudlog.info("FCW triggered")
@@ -164,7 +166,7 @@ class Planner():
     # Interpolate 0.05 seconds and save as starting point for next iteration
     a_prev = self.a_desired
     self.a_desired = float(interp(DT_MDL, T_IDXS[:CONTROL_N], self.a_desired_trajectory))
-    self.v_desired = self.v_desired + DT_MDL * (self.a_desired + a_prev)/2.0
+    self.v_desired = self.v_desired + DT_MDL * (self.a_desired + a_prev) / 2.0
 
   def publish(self, sm, pm):
     plan_send = messaging.new_message('longitudinalPlan')
@@ -207,7 +209,7 @@ class Planner():
     self.speed_limit_controller.update(enabled, v_ego, a_ego, sm, v_cruise, self.events)
     self.turn_speed_controller.update(enabled, v_ego, a_ego, sm)
 
-    # Pick solution with lowest acceleration target.
+    # Pick solution with lowest velocity target.
     a_solutions = {'cruise': float("inf")}
     v_solutions = {'cruise': v_cruise}
 

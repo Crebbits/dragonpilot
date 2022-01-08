@@ -104,6 +104,7 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     wideRoadCameraError @102;
     localizerMalfunction @103;
     highCpuUsage @105;
+    cruiseMismatch @106;
 
     driverMonitorLowAccDEPRECATED @68;
     radarCanErrorDEPRECATED @15;
@@ -127,15 +128,12 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     startupOneplusDEPRECATED @82;
     startupFuzzyFingerprintDEPRECATED @97;
 
-    # mapd
+    #dp
+    autoLaneChange @107;
+    manualSteeringRequired @108;
+    manualSteeringRequiredBlinkersOn @109;
     speedLimitActive @110;
     speedLimitValueChange @111;
-
-    #dp
-    autoLaneChange @106;
-    manualSteeringRequired @107;
-    manualSteeringRequiredBlinkersOn @108;
-    leadCarMoving @109;
   }
 }
 
@@ -160,6 +158,7 @@ struct CarState {
   # brake pedal, 0.0-1.0
   brake @5 :Float32;      # this is user pedal only
   brakePressed @6 :Bool;  # this is user pedal only
+  brakeHoldActive @38 :Bool;
 
   # steering wheel
   steeringAngleDeg @7 :Float32;
@@ -203,9 +202,9 @@ struct CarState {
   rightBlindspot @34 :Bool; # Is there something blocking the right lane change
 
   # dp
-  lkMode @38 :Bool;
-  engineRPM @39 :Float32;
-  cruiseActualEnabled @40 :Bool;
+  lkMode @39 :Bool;
+  engineRPM @40 :Float32;
+  cruiseActualEnabled @41 :Bool;
 
   struct WheelSpeeds {
     # optional wheel speeds
@@ -306,6 +305,8 @@ struct CarControl {
   active @7 :Bool;
 
   actuators @6 :Actuators;
+  roll @8 :Float32;
+  pitch @9 :Float32;
 
   cruiseControl @4 :CruiseControl;
   hudControl @5 :HUDControl;
@@ -364,14 +365,17 @@ struct CarControl {
 
     enum AudibleAlert {
       none @0;
-      chimeEngage @1;
-      chimeDisengage @2;
-      chimeError @3;
-      chimeWarning1 @4;
-      chimeWarning2 @5;
-      chimeWarningRepeat @6;
-      chimePrompt @7;
-      chimeWarning2Repeat @8;
+
+      engage @1;
+      disengage @2;
+      refuse @3;
+
+      warningSoft @4;
+      warningImmediate @5;
+
+      prompt @6;
+      promptRepeat @7;
+      promptDistracted @8;
     }
   }
 
@@ -392,6 +396,7 @@ struct CarParams {
   enableDsu @5 :Bool;        # driving support unit
   enableApgs @6 :Bool;       # advanced parking guidance system
   enableBsm @56 :Bool;       # blind spot monitoring
+  flags @64 :UInt32;         # flags for car specific quirks
 
   minEnableSpeed @7 :Float32;
   minSteerSpeed @8 :Float32;
@@ -454,6 +459,8 @@ struct CarParams {
   communityFeature @46: Bool;  # true if a community maintained feature is detected
   fingerprintSource @49: FingerprintSource;
   networkLocation @50 :NetworkLocation;  # Where Panda/C2 is integrated into the car's CAN network
+
+  wheelSpeedFactor @63 :Float32; # Multiplier on wheels speeds to computer actual speeds
 
   struct SafetyConfig {
     safetyModel @0 :SafetyModel;
@@ -533,7 +540,7 @@ struct CarParams {
     allOutput @17;
     gmAscm @18;
     noOutput @19;  # like silent but without silent CAN TXs
-    hondaBoschHarness @20;
+    hondaBosch @20;
     volkswagenPq @21;
     subaruLegacy @22;  # pre-Global platform
     hyundaiLegacy @23;

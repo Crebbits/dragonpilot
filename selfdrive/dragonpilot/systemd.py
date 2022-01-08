@@ -34,7 +34,6 @@ params = Params()
 from common.dp_common import param_get, get_last_modified
 from common.dp_time import LAST_MODIFIED_SYSTEMD
 from selfdrive.dragonpilot.dashcamd import Dashcamd
-from selfdrive.dragonpilot.appd import Appd
 from selfdrive.hardware import EON
 import socket
 from common.realtime import Ratekeeper
@@ -129,7 +128,7 @@ def confd_thread():
     if frame == 0:
       setattr(msg.dragonConf, get_struct_name('dp_locale'), params.get("dp_locale"))
       # mirror EndToEndToggle to dp_lane_less_model_ctrl first time, after all
-      put_nonblocking('dp_lane_less_mode_ctrl', params.get('EndToEndToggle'))
+      put_nonblocking('dp_lane_less_mode_ctrl', "1" if params.get_bool('EndToEndToggle') else "0")
     '''
     ===================================================
     push ip addr every 10 secs
@@ -159,13 +158,6 @@ def confd_thread():
     '''
     if msg.dragonConf.dpDashcamd and frame % HERTZ == 0:
       dashcamd.run(started, free_space)
-    # '''
-    # ===================================================
-    # appd
-    # ===================================================
-    # '''
-    # if msg.dragonConf.dpAppd:
-    #   appd.update(started)
     '''
     ===================================================
     finalise
@@ -180,11 +172,11 @@ def confd_thread():
 def update_conf(msg, conf, first_run = False):
   conf_type = conf.get('conf_type')
 
-  # skip checking since modified date time hasn't been changed.
-  if (last_modified_confs.get(conf['name'])) is not None and last_modified_confs.get(conf['name']) == os.stat(PARAM_PATH + conf['name']).st_mtime:
-    return msg
-
   if 'param' in conf_type and 'struct' in conf_type:
+    access_time = os.path.getatime(PARAM_PATH + conf['name'])
+    if (last_modified_confs.get(conf['name'])) is not None and last_modified_confs.get(conf['name']) == access_time:
+      return msg
+
     update_this_conf = True
 
     if not first_run:
@@ -197,7 +189,7 @@ def update_conf(msg, conf, first_run = False):
     if update_this_conf:
       msg = set_message(msg, conf)
       if os.path.isfile(PARAM_PATH + conf['name']):
-        last_modified_confs[conf['name']] = os.stat(PARAM_PATH + conf['name']).st_mtime
+        last_modified_confs[conf['name']] = access_time
   return msg
 
 def update_conf_all(confs, msg, first_run = False):

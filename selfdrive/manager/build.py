@@ -6,16 +6,17 @@ import time
 import textwrap
 from pathlib import Path
 import re
+import socket
 
 # NOTE: Do NOT import anything here that needs be built (e.g. params)
 from common.basedir import BASEDIR
 from common.spinner import Spinner
 from common.text_window import TextWindow
-from selfdrive.hardware import TICI
+from selfdrive.hardware import TICI, JETSON
 from selfdrive.swaglog import cloudlog, add_file_handler
-from selfdrive.version import dirty
+from selfdrive.version import get_dirty
 
-MAX_CACHE_SIZE = 2e9
+MAX_CACHE_SIZE = 4e9 if "CI" in os.environ else 2e9
 CACHE_DIR = Path("/data/scons_cache" if TICI else "/tmp/scons_cache")
 
 TOTAL_SCONS_NODES = 2405
@@ -70,22 +71,16 @@ def build(spinner, dirty=False):
       else:
         # Build failed log errors
         errors = [line.decode('utf8', 'replace') for line in compile_output
-                  if any([err in line for err in [b'error: ', b'not found, needed by target']])]
+                  if any(err in line for err in [b'error: ', b'not found, needed by target'])]
         error_s = "\n".join(errors)
         add_file_handler(cloudlog)
         cloudlog.error("scons build failed\n" + error_s)
 
-        try:
-          result = subprocess.check_output(["ifconfig", "wlan0"], encoding='utf8')
-          ip = re.findall(r"inet addr:((\d+\.){3}\d+)", result)[0][0]
-        except:
-          ip = 'N/A'
-
         # Show TextWindow
         spinner.close()
         if not os.getenv("CI"):
-          error_s = "\n \n".join(["\n".join(textwrap.wrap(e, 65)) for e in errors])
-          with TextWindow(("openpilot failed to build (IP: %s)\n \n" % ip) + error_s) as t:
+          error_s = "\n \n".join("\n".join(textwrap.wrap(e, 65)) for e in errors)
+          with TextWindow(("openpilot failed to build (IP: %s)\n \n" % get_ip()) + error_s) as t:
             t.wait_for_exit()
         exit(1)
     else:
@@ -101,8 +96,20 @@ def build(spinner, dirty=False):
     cache_size -= f.stat().st_size
     f.unlink()
 
+def get_ip():
+  s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+  try:
+    # doesn't even have to be reachable
+    s.connect(('10.255.255.255', 1))
+    ip = s.getsockname()[0]
+  except:
+    ip = 'N/A'
+  finally:
+    s.close()
+  return ip
+
 
 if __name__ == "__main__" and not PREBUILT:
   spinner = Spinner()
   spinner.update_progress(0, 100)
-  build(spinner, dirty)
+  build(spinner, get_dirty())

@@ -63,7 +63,7 @@ confs = [
   {'name': 'dp_ui_brightness', 'default': 0, 'type': 'UInt8', 'min': 0, 'max': 100, 'conf_type': ['param', 'struct']},
   {'name': 'dp_ui_volume', 'default': 0, 'type': 'Int8', 'min': -5, 'max': 100, 'conf_type': ['param', 'struct']},
   # toyota
-  {'name': 'dp_lexus_rx_rpm_fix', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
+  # {'name': 'dp_lexus_rx_rpm_fix', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_toyota_ldw', 'default': True, 'type': 'Bool', 'conf_type': ['param', 'struct']},
   {'name': 'dp_toyota_sng', 'default': False, 'type': 'Bool', 'conf_type': ['param', 'struct']},
   {'name': 'dp_toyota_zss', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
@@ -80,16 +80,16 @@ confs = [
   {'name': 'dp_honda_eps_mod', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_honda_kmh_display', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   # volkswagen
-  {'name': 'dp_vw_panda', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
+  # {'name': 'dp_vw_panda', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   #misc
   {'name': 'dp_ip_addr', 'default': '', 'type': 'Text', 'conf_type': ['struct']},
   {'name': 'dp_fan_mode', 'default': 0, 'type': 'UInt8', 'min': 0, 'max': 2, 'conf_type': ['param']},
   {'name': 'dp_last_modified', 'default': str(floor(time.time())), 'type': 'Text', 'conf_type': ['param']},
-  {'name': 'dp_camera_offset', 'default': 6, 'type': 'Int8', 'min': -100, 'max': 100, 'conf_type': ['param', 'struct']},
-  {'name': 'dp_path_offset', 'default': 0, 'type': 'Int8', 'min': -100, 'max': 100, 'conf_type': ['param', 'struct']},
+  # {'name': 'dp_camera_offset', 'default': 6, 'type': 'Int8', 'min': -100, 'max': 100, 'conf_type': ['param', 'struct']},
+  # {'name': 'dp_path_offset', 'default': 0, 'type': 'Int8', 'min': -100, 'max': 100, 'conf_type': ['param', 'struct']},
 
   {'name': 'dp_locale', 'default': 'en-US', 'type': 'Text', 'conf_type': ['param', 'struct'], 'update_once': True},
-  {'name': 'dp_reg', 'default': True, 'type': 'Bool', 'conf_type': ['param']},
+  {'name': 'dp_reg', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   # sr learner related
   {'name': 'dp_sr_learner', 'default': True, 'type': 'Bool', 'conf_type': ['param', 'struct']},
   {'name': 'dp_sr_custom', 'default': 9.99, 'min': 9.99, 'max': 30., 'type': 'Float32', 'depends': [{'name': 'dp_sr_learner', 'vals': [False]}], 'conf_type': ['param', 'struct']},
@@ -98,7 +98,6 @@ confs = [
   {'name': 'dp_lqr', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_reset_live_param_on_start', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
 
-  # {'name': 'dp_appd', 'default': False, 'type': 'Bool', 'conf_type': ['param', 'struct']},
   {'name': 'dp_jetson', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_car_assigned', 'default': '', 'type': 'Text', 'conf_type': ['param']},
   {'name': 'dp_car_list', 'default': '', 'type': 'Text', 'conf_type': ['param']},
@@ -108,6 +107,8 @@ confs = [
   {'name': 'dp_gpxd', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   {'name': 'dp_mapd', 'default': False, 'type': 'Bool', 'conf_type': ['param', 'struct']},
   {'name': 'dp_otisserv', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
+  # no gps is for mr. one's harness + black panda in one solution (without GPS chip)
+  {'name': 'dp_panda_no_gps', 'default': False, 'type': 'Bool', 'conf_type': ['param']},
   # deprecated
   # {'name': 'dp_mapbox_token_pk', 'default': '', 'type': 'Text', 'conf_type': ['param']},
   # {'name': 'dp_mapbox_token_sk', 'default': '', 'type': 'Text', 'conf_type': ['param']},

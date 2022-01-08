@@ -309,6 +309,7 @@ struct DeviceState @0xa4d8b5af2aa492eb {
   chargingDisabled @18 :Bool;
   offroadPowerUsageUwh @23 :UInt32;
   carBatteryCapacityUwh @25 :UInt32;
+  powerDrawW @40 :Float32;
 
   # device thermals
   cpuTempC @26 :List(Float32);
@@ -317,10 +318,17 @@ struct DeviceState @0xa4d8b5af2aa492eb {
   ambientTempC @30 :Float32;
   nvmeTempC @35 :List(Float32);
   modemTempC @36 :List(Float32);
+  pmicTempC @39 :List(Float32);
+  thermalZones @38 :List(ThermalZone);
   thermalStatus @14 :ThermalStatus;
 
   fanSpeedPercentDesired @10 :UInt16;
   screenBrightnessPercent @37 :Int8;
+
+  struct ThermalZone {
+    name @0 :Text;
+    temp @1 :Float32;
+  }
 
   enum ThermalStatus {
     green @0;
@@ -605,6 +613,8 @@ struct ControlsState @0x97ff69c53601abf1 {
     delta @8 :Float32;
     output @9 :Float32;
     saturated @10 :Bool;
+    steeringAngleDesiredDeg @11 :Float32;
+    steeringRateDesiredDeg @12 :Float32;
   }
 
   struct LateralPIDState {
@@ -617,6 +627,7 @@ struct ControlsState @0x97ff69c53601abf1 {
     f @6 :Float32;
     output @7 :Float32;
     saturated @8 :Bool;
+    steeringAngleDesiredDeg @9 :Float32;
    }
 
   struct LateralLQRState {
@@ -626,6 +637,7 @@ struct ControlsState @0x97ff69c53601abf1 {
     output @3 :Float32;
     lqrOutput @4 :Float32;
     saturated @5 :Bool;
+    steeringAngleDesiredDeg @6 :Float32;
   }
 
   struct LateralAngleState {
@@ -633,6 +645,7 @@ struct ControlsState @0x97ff69c53601abf1 {
     steeringAngleDeg @1 :Float32;
     output @2 :Float32;
     saturated @3 :Bool;
+    steeringAngleDesiredDeg @4 :Float32;
   }
 
   struct LateralDebugState {
@@ -687,6 +700,7 @@ struct ModelDataV2 {
   orientation @5 :XYZTData;
   velocity @6 :XYZTData;
   orientationRate @7 :XYZTData;
+  acceleration @19 :XYZTData;
 
   # prediction lanelines and road edges
   laneLines @8 :List(XYZTData);
@@ -812,7 +826,6 @@ struct LongitudinalPlan @0xe00b5b3eba12876c {
   accels @32 :List(Float32);
   speeds @33 :List(Float32);
   jerks @34 :List(Float32);
-
   #mapd
   visionTurnControllerState @35 :VisionTurnControllerState;
   visionTurnSpeed @36 :Float32;
@@ -912,7 +925,7 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
 
   # dp
   dpALCAStartIn @30 :Float32;
-  dpLaneLessModeStatus @31 :Bool;
+  dpLaneLessModeIsE2E @31 :Bool;
   # 32~33 are being used in mapd
 
   enum Desire {
@@ -1328,6 +1341,7 @@ struct DriverMonitoringState @0xb83cda094a1da284 {
 struct Boot {
   wallTimeNanos @0 :UInt64;
   pstore @4 :Map(Text, Data);
+  commands @5 :Map(Text, Data);
   launchLog @3 :Text;
 
   lastKmsgDEPRECATED @1 :Data;
@@ -1369,29 +1383,6 @@ struct LiveMapDataDEPRECATED {
   roadCurvature @9 :List(Float32);
   distToTurn @10 :Float32;
   mapValid @11 :Bool;
-}
-
-struct LiveMapData {
-  speedLimitValid @0 :Bool;
-  speedLimit @1 :Float32;
-  speedLimitAheadValid @2 :Bool;
-  speedLimitAhead @3 :Float32;
-  speedLimitAheadDistance @4 :Float32;
-  turnSpeedLimitValid @5 :Bool;
-  turnSpeedLimit @6 :Float32;
-  turnSpeedLimitEndDistance @7 :Float32;
-  turnSpeedLimitSign @8 :Int16;
-  turnSpeedLimitsAhead @9 :List(Float32);
-  turnSpeedLimitsAheadDistances @10 :List(Float32);
-  turnSpeedLimitsAheadSigns @11 :List(Int16);
-  lastGpsTimestamp @12 :Int64;  # Milliseconds since January 1, 1970.
-  currentRoadName @13 :Text;
-  lastGpsLatitude @14 :Float64;
-  lastGpsLongitude @15 :Float64;
-  lastGpsSpeed @16 :Float32;
-  lastGpsBearingDeg @17 :Float32;
-  lastGpsAccuracy @18 :Float32;
-  lastGpsBearingAccuracyDeg @19 :Float32;
 }
 
 struct CameraOdometry {
@@ -1436,6 +1427,44 @@ struct UploaderState {
   lastTime @4 :Float32;  # s
   lastSpeed @5 :Float32; # MB/s
   lastFilename @6 :Text;
+}
+
+struct NavInstruction {
+  maneuverPrimaryText @0 :Text;
+  maneuverSecondaryText @1 :Text;
+  maneuverDistance @2 :Float32;  # m
+  maneuverType @3 :Text; # TODO: Make Enum
+  maneuverModifier @4 :Text; # TODO: Make Enum
+
+  distanceRemaining @5 :Float32; # m
+  timeRemaining @6 :Float32; # s
+  timeRemainingTypical @7 :Float32; # s
+
+  lanes @8 :List(Lane);
+  showFull @9 :Bool;
+
+  struct Lane {
+    directions @0 :List(Direction);
+    active @1 :Bool;
+    activeDirection @2 :Direction;
+  }
+
+  enum Direction {
+    none @0;
+    left @1;
+    right @2;
+    straight @3;
+  }
+
+}
+
+struct NavRoute {
+  coordinates @0 :List(Coordinate);
+
+  struct Coordinate {
+    latitude @0 :Float32;
+    longitude @1 :Float32;
+  }
 }
 
 struct Event {
@@ -1495,6 +1524,10 @@ struct Event {
     deviceState @6 :DeviceState;
     logMessage @18 :Text;
 
+    # navigation
+    navInstruction @82 :NavInstruction;
+    navRoute @83 :NavRoute;
+    navThumbnail @84: Thumbnail;
 
     # *********** debug ***********
     testJoystick @52 :Joystick;
@@ -1537,7 +1570,7 @@ struct Event {
     gpsLocationDEPRECATED @21 :GpsLocationData;
     uiLayoutStateDEPRECATED @57 :Legacy.UiLayoutState;
     pandaStateDEPRECATED @12 :PandaState;
-    dragonConf @82 :Dp.DragonConf;
-    liveMapData @83: LiveMapData; # 82 is for dp
+    dragonConf @85 :Dp.DragonConf;
+    liveMapData @86 :Dp.LiveMapData;
   }
 }

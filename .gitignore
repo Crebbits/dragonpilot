@@ -41,8 +41,6 @@ selfdrive/boardd/boardd
 selfdrive/logcatd/logcatd
 selfdrive/mapd/default_speeds_by_region.json
 selfdrive/proclogd/proclogd
-
-
 selfdrive/test/longitudinal_maneuvers/out
 selfdrive/visiond/visiond
 selfdrive/loggerd/loggerd
@@ -59,6 +57,7 @@ one
 openpilot
 notebooks
 xx
+yy
 hyperthneed
 panda_jungle
 provisioning
@@ -78,5 +77,10 @@ selfdrive/modeld/thneed/compile
 models/*.thneed
 
 *.bz2
+
+build/
+
+!**/.gitkeep
+
 !third_party/mapbox-gl-native-qt/aarch64/*.so
 !third_party/mapbox-gl-native-qt/jarch64/*.so

@@ -1,4 +1,7 @@
 """Install exception handler for process crash."""
+from selfdrive.swaglog import cloudlog
+from selfdrive.version import get_version, get_branch, get_origin, get_branch, get_dirty, get_commit, get_commit
+from common.params import Params
 import os
 import sys
 import capnp
@@ -6,13 +9,8 @@ import traceback
 import requests
 from cereal import car
 from datetime import datetime
-from selfdrive.swaglog import cloudlog
-from selfdrive.version import version
-from selfdrive.version import version, branch, origin, branch, dirty, commit, get_git_commit
-from common.params import Params
 
 import sentry_sdk
-from sentry_sdk import set_tag
 from sentry_sdk.integrations.threading import ThreadingIntegration
 
 CRASHES_DIR = '/data/community/crashes'
@@ -43,7 +41,7 @@ try:
   ip = requests.get('https://checkip.amazonaws.com/').text.strip()
 except Exception:
   ip = "255.255.255.255"
-error_tags = {'dirty': dirty, 'dongle_id': dongle_id, 'branch': branch, 'remote': origin, 'fingerprintedAs': candidate, 'gitname':gitname}
+error_tags = {'dirty': get_dirty(), 'dongle_id': dongle_id, 'branch': get_branch(), 'remote': get_origin(), 'fingerprintedAs': candidate, 'gitname':gitname}
 
 dongle_id = Params().get("DongleId", encoding='utf-8')
 
@@ -74,11 +72,11 @@ def bind_extra(**kwargs) -> None:
 def init() -> None:
   sentry_sdk.init("https://31259f4006e4420bb616b5825cd8e02f@o973390.ingest.sentry.io/5924959",
                   default_integrations=False, integrations=[ThreadingIntegration(propagate_hub=True)],
-                  release=version)
+                  release=get_version())
 
 sentry_sdk.set_user({"id": dongle_id})
 sentry_sdk.set_user({"name": gitname})
-sentry_sdk.set_tag("dirty", dirty)
-sentry_sdk.set_tag("origin", origin)
-sentry_sdk.set_tag("branch", branch)
-sentry_sdk.set_tag("commit", commit)
+sentry_sdk.set_tag("dirty", get_dirty())
+sentry_sdk.set_tag("origin", get_origin())
+sentry_sdk.set_tag("branch", get_branch())
+sentry_sdk.set_tag("commit", get_commit())

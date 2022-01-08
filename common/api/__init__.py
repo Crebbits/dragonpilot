@@ -3,7 +3,7 @@ import os
 import requests
 from datetime import datetime, timedelta
 from common.basedir import PERSIST
-from selfdrive.version import version
+from selfdrive.version import get_version
 from common.params import Params
 
 API_HOST = os.getenv('API_HOST', 'https://api.commadotai.com') if not Params().get_bool("dp_api_custom") else Params().get("dp_api_custom_url", encoding='utf-8')
@@ -37,13 +37,13 @@ class Api():
     if isinstance(token, bytes):
       token = token.decode('utf8')
     return token
-    
+
 
 def api_get(endpoint, method='GET', timeout=None, access_token=None, **params):
   headers = {}
   if access_token is not None:
-    headers['Authorization'] = "JWT "+access_token
+    headers['Authorization'] = "JWT " + access_token
 
-  headers['User-Agent'] = "openpilot-" + version
+  headers['User-Agent'] = "openpilot-" + get_version()
 
   return requests.request(method, API_HOST + "/" + endpoint, timeout=timeout, headers=headers, params=params)

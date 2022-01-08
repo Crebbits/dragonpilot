@@ -9,6 +9,7 @@ source "$BASEDIR/launch_env.sh"
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 function two_init {
+  export LD_LIBRARY_PATH="$BASEDIR/third_party/mapbox-gl-native-qt/aarch64:$LD_LIBRARY_PATH"
   python /data/openpilot/scripts/installers/language_installer.py
   python /data/openpilot/scripts/installers/sshkey_installer.py
   python /data/openpilot/scripts/installers/font_installer.py
@@ -29,6 +30,11 @@ function two_init {
   for f in /sys/block/*/queue/scheduler; do
     echo noop > $f
   done
+
+  # set vol to 100 when boot
+  service call audio 3 i32 2 i32 100
+  service call audio 3 i32 3 i32 100
+  service call audio 3 i32 4 i32 100
 
   # *** shield cores 2-3 ***
 
@@ -160,7 +166,7 @@ function tici_init {
 # jetpack 4.6
 function jetson_init {
   # modeld need this
-  export LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH"
+  export LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu:$BASEDIR/third_party/mapbox-gl-native-qt/jarch64:$LD_LIBRARY_PATH"
   # jetpack 4.6 has mode 8
   sudo nvpmodel -m 8
 
@@ -206,6 +212,19 @@ function jetson_init {
 
   # hide mouse cursor
   unclutter -idle 0 &
+
+  # prep for model
+  rm -fr $DIR/models/*.dlc
+  if [ -f "$DIR/models/supercombo.onnx" ]; then
+    file_check_sum=$(md5sum $DIR/models/supercombo.onnx | cut -d " " -f1)
+    if [[ $file_check_sum != "e9e19c5127f717dd94e8182201a08ab8" ]]; then
+      rm -fr $DIR/models/supercombo.onnx
+    fi
+  fi
+  # make sure we have right models
+  if [ ! -f "$DIR/models/supercombo.onnx" ]; then
+    wget https://github.com/commaai/openpilot/raw/be89044c51406eccb7ce7ae7678004a8fc774a7a/models/supercombo.onnx -O "$DIR/models/supercombo.onnx"
+  fi
 }
 
 function launch {
@@ -268,11 +287,6 @@ function launch {
     tici_init
   elif [ -f /JETSON ]; then
     jetson_init
-    # make sure we have right models
-    if [ ! -f "$DIR/models/supercombo.onnx" ]; then
-      rm -fr $DIR/models/*.dlc
-      wget https://github.com/commaai/openpilot/raw/72a736f90e57a7d5845891ea34b17360b6f684d0/models/supercombo.onnx -O "$DIR/models/supercombo.onnx"
-    fi
   fi
 
   # write tmux scrollback to a file

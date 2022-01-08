@@ -62,7 +62,9 @@ services = {
   "modelV2": (True, 20., 40),
   "managerState": (True, 2., 1),
   "uploaderState": (True, 0., 1),
-  "liveMapData": (True, 0.),
+  "navInstruction": (True, 0.),
+  "navRoute": (True, 0.),
+  "navThumbnail": (True, 0.),
 
   # debug
   "testJoystick": (False, 0.),
@@ -70,6 +72,7 @@ services = {
   # dp
   "thermal": (True, 2., 1),
   "dragonConf": (False, 1.),
+  "liveMapData": (True, 0.), # mapd
 }
 service_list = {name: Service(new_port(idx), *vals) for  # type: ignore
                 idx, (name, vals) in enumerate(services.items())}

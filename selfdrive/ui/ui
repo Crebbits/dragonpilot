@@ -1,11 +1,6 @@
 #!/bin/sh
 cd "$(dirname "$0")"
-if [ ! -f /JETSON ]; then
-  export LD_LIBRARY_PATH="/system/lib64:$LD_LIBRARY_PATH"
-fi
-if [ -f /EON ]; then
-  export LD_LIBRARY_PATH="../../third_party/mapbox-gl-native-qt/aarch64:$LD_LIBRARY_PATH"
-fi
+export LD_LIBRARY_PATH="/system/lib64:$LD_LIBRARY_PATH"
 export QT_PLUGIN_PATH="../../third_party/qt-plugins/$(uname -m)"
 if [ -f /TICI ]; then
   exec ./_ui_c3

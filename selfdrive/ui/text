@@ -8,5 +8,12 @@ elif [ -f /JETSON ] && [ ! -f qt/text ]; then
   cp qt/text_larch64 qt/text
 fi
 
+if [ ! -f /JETSON ]; then
 export LD_LIBRARY_PATH="/system/lib64:$LD_LIBRARY_PATH"
-exec ./qt/text "$1"
+fi
+#exec ./qt/text "$1"
+if [ -f /TICI ]; then
+  exec ./qt/text_c3 "$1"
+else
+  exec ./qt/text "$1"
+fi
