@@ -60,7 +60,6 @@ class Controls:
   def __init__(self, sm=None, pm=None, can_sock=None):
     params = Params()
     self.dp_jetson = params.get_bool('dp_jetson')
-    # self.dp_lexus_rx_rpm_fix = params.get_bool('dp_lexus_rx_rpm_fix')
     config_realtime_process(4 if TICI else 3, Priority.CTRL_HIGH)
 
     # Setup sockets
@@ -181,10 +180,6 @@ class Controls:
       self.events.add(EventName.communityFeatureDisallowed, static=True)
     if not car_recognized:
       self.events.add(EventName.carUnrecognized, static=True)
-      if len(self.CP.carFw) > 0:
-        set_offroad_alert("Offroad_CarUnrecognized", True)
-      else:
-        set_offroad_alert("Offroad_NoFirmware", True)
     elif self.read_only:
       self.events.add(EventName.dashcamMode, static=True)
     elif self.joystick_mode:
@@ -687,12 +682,6 @@ class Controls:
     controlsState.forceDecel = bool(force_decel)
     controlsState.canErrorCounter = self.can_error_counter
 
-    # # dp - RX Patch: https://github.com/LexusRXopenpilotUG/openpilot
-    # if self.dp_lexus_rx_rpm_fix:
-    #   # Hack for reasonable gears/reasonable RPMs on Lexus RX. No upstreaming!
-    #   # Setting speed may be iffy still
-    #   if self.v_cruise_kph != 255:
-    #     controlsState.vCruise = controlsState.vCruise * 0.974
     # dp - for ui
     controlsState.angleSteers = CS.steeringAngleDeg
     controlsState.steeringAngleDesiredDeg = actuators.steeringAngleDeg

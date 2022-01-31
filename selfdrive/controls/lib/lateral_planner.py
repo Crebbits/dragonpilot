@@ -65,6 +65,7 @@ class LateralPlanner:
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(6))
 
+    self.d_path_w_lines_xyz = np.zeros((TRAJECTORY_SIZE, 3))
     # dp
     self.dp_torque_apply_length = 1.5 # secs of torque we apply for
     self.dp_lc_auto_start = 0. # time to start alc
@@ -85,7 +86,7 @@ class LateralPlanner:
     v_ego = sm['carState'].vEgo
     active = sm['controlsState'].active
     measured_curvature = sm['controlsState'].curvature
-    # self.LP.update_dp_set_offsets(sm['dragonConf'].dpCameraOffset, sm['dragonConf'].dpPathOffset)
+    self.LP.update_dp_set_offsets(sm['dragonConf'].dpCameraOffset, sm['dragonConf'].dpPathOffset)
 
     md = sm['modelV2']
     self.LP.parse_model(sm['modelV2'])

@@ -255,6 +255,7 @@ def thermald_thread():
     params.put_bool("BootedOnroad", True)
 
   # dp
+  peripheralStateLast = None
   dp_no_batt = params.get_bool("dp_no_batt")
   dp_temp_monitor = True
   dp_last_modified_temp_monitor = None
@@ -272,6 +273,7 @@ def thermald_thread():
   last_modified = None
   last_modified_check = None
 
+  dp_no_offroad_fix = params.get_bool('dp_no_offroad_fix')
   if JETSON:
     handle_fan = handle_fan_jetson
 
@@ -414,25 +416,28 @@ def thermald_thread():
     # set_offroad_alert_if_changed("Offroad_InvalidTime", (not startup_conditions["time_valid"]))
     #
     # startup_conditions["up_to_date"] = params.get("Offroad_ConnectivityNeeded") is None or params.get_bool("DisableUpdates") or params.get_bool("SnoozeUpdate")
-    # startup_conditions["not_uninstalling"] = not params.get_bool("DoUninstall")
+    startup_conditions["not_uninstalling"] = not params.get_bool("DoUninstall")
     # startup_conditions["accepted_terms"] = params.get("HasAcceptedTerms") == terms_version
 
     # with 2% left, we killall, otherwise the phone will take a long time to boot
     startup_conditions["free_space"] = msg.deviceState.freeSpacePercent > 2
-    startup_conditions["completed_training"] = params.get("CompletedTrainingVersion") == training_version or \
-                                               params.get_bool("Passive")
+    # startup_conditions["completed_training"] = params.get("CompletedTrainingVersion") == training_version or \
+    #                                            params.get_bool("Passive")
     startup_conditions["not_driver_view"] = not params.get_bool("IsDriverViewEnabled")
     startup_conditions["not_taking_snapshot"] = not params.get_bool("IsTakingSnapshot")
     # if any CPU gets above 107 or the battery gets above 63, kill all processes
     # controls will warn with CPU above 95 or battery above 60
-    onroad_conditions["device_temp_good"] = thermal_status < ThermalStatus.danger
-    set_offroad_alert_if_changed("Offroad_TemperatureTooHigh", (not onroad_conditions["device_temp_good"]))
+    # onroad_conditions["device_temp_good"] = thermal_status < ThermalStatus.danger
+    # set_offroad_alert_if_changed("Offroad_TemperatureTooHigh", (not onroad_conditions["device_temp_good"]))
 
     if TICI:
       set_offroad_alert_if_changed("Offroad_StorageMissing", (not Path("/data/media").is_mount()))
 
     # Handle offroad/onroad transition
     should_start = all(onroad_conditions.values())
+    # dp - check usb_present to fix not going offroad on "EON/LEON + battery - Comma Power"
+    if dp_no_offroad_fix:
+      should_start = should_start and HARDWARE.get_usb_present()
     if started_ts is None:
       should_start = should_start and all(startup_conditions.values())
 
@@ -462,10 +467,18 @@ def thermald_thread():
     msg.deviceState.powerDrawW = current_power_draw if current_power_draw is not None else 0
 
     # Check if we need to disable charging (handled by boardd)
-    msg.deviceState.chargingDisabled = power_monitor.should_disable_charging(onroad_conditions["ignition"], in_car, off_ts)
+    msg.deviceState.chargingDisabled = power_monitor.should_disable_charging(onroad_conditions["ignition"], in_car, off_ts, dp_auto_shutdown, dp_auto_shutdown_in)
+
+    # dp - for battery powered device
+    # when peripheralState is not changing (panda offline), and usb is not present (not charging)
+    if dp_no_offroad_fix and (peripheralStateLast == peripheralState) and not msg.deviceState.usbOnline:
+      if (sec_since_boot() - off_ts) > dp_auto_shutdown_in * 60:
+        time.sleep(10)
+        HARDWARE.shutdown()
+    peripheralStateLast = peripheralState
 
     # Check if we need to shut down
-    if power_monitor.should_shutdown(peripheralState, onroad_conditions["ignition"], in_car, off_ts, started_seen, LEON):
+    if power_monitor.should_shutdown(peripheralState, onroad_conditions["ignition"], in_car, off_ts, started_seen, dp_auto_shutdown, dp_auto_shutdown_in):
       cloudlog.info(f"shutting device down, offroad since {off_ts}")
       # TODO: add function for blocking cloudlog instead of sleep
       time.sleep(10)

@@ -37,6 +37,7 @@ procs = [
   PythonProcess("tombstoned", "selfdrive.tombstoned", enabled=not PC and not MIPI, persistent=True),
   PythonProcess("updated", "selfdrive.updated", enabled=not PC, persistent=True),
   PythonProcess("uploader", "selfdrive.loggerd.uploader", enabled=not MIPI, persistent=True),
+  PythonProcess("mapd", "selfdrive.mapd.mapd"),
 
   # EON only
   PythonProcess("rtshield", "selfdrive.rtshield", enabled=EON),
@@ -46,7 +47,6 @@ procs = [
   PythonProcess("systemd", "selfdrive.dragonpilot.systemd", persistent=True),
   PythonProcess("gpxd", "selfdrive.dragonpilot.gpxd"),
   PythonProcess("otisserv", "selfdrive.dragonpilot.otisserv", persistent=True),
-  PythonProcess("mapd", "selfdrive.mapd.mapd"),
 ]
 
 managed_processes = {p.name: p for p in procs}

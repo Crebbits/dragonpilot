@@ -1,10 +1,9 @@
 import os
-import json
 import threading
 import requests
 from common.params import Params, put_nonblocking
 from common.basedir import BASEDIR
-from selfdrive.version import get_comma_remote, get_tested_branch
+# from selfdrive.version import get_comma_remote, get_tested_branch
 from selfdrive.car.fingerprints import eliminate_incompatible_cars, all_legacy_fingerprint_cars
 from selfdrive.car.vin import get_vin, VIN_UNKNOWN
 from selfdrive.car.fw_versions import get_fw_versions, match_fw_to_car
@@ -43,7 +42,7 @@ def get_one_can(logcan):
 def load_interfaces(brand_names):
   ret = {}
   for brand_name in brand_names:
-    path = f'selfdrive.car.{brand_name}'
+    path = ('selfdrive.car.%s' % brand_name)
     CarInterface = __import__(path + '.interface', fromlist=['CarInterface']).CarInterface
 
     if os.path.exists(BASEDIR + '/' + path.replace('.', '/') + '/carstate.py'):
@@ -69,7 +68,7 @@ def _get_interface_names():
   for car_folder in [x[0] for x in os.walk(BASEDIR + '/selfdrive/car')]:
     try:
       brand_name = car_folder.split('/')[-1]
-      model_names = __import__(f'selfdrive.car.{brand_name}.values', fromlist=['CAR']).CAR
+      model_names = __import__('selfdrive.car.%s.values' % brand_name, fromlist=['CAR']).CAR
       model_names = [getattr(model_names, c) for c in model_names.__dict__.keys() if not c.startswith("__")]
       brand_names[brand_name] = model_names
     except (ImportError, IOError):
@@ -85,9 +84,14 @@ interfaces = load_interfaces(interface_names)
 
 # **** for use live only ****
 def fingerprint(logcan, sendcan):
-  dp_car_assigned = Params().get('dp_car_assigned', encoding='utf8')
-  fixed_fingerprint = os.environ.get('FINGERPRINT', "" if dp_car_assigned is None else dp_car_assigned)
+  fixed_fingerprint = os.environ.get('FINGERPRINT', "")
   skip_fw_query = os.environ.get('SKIP_FW_QUERY', False)
+
+  dp_car_assigned = Params().get('dp_car_assigned', encoding='utf8')
+  if dp_car_assigned is not None:
+    car_selected = dp_car_assigned.strip()
+    fixed_fingerprint = car_selected
+    skip_fw_query = True
 
   if not fixed_fingerprint and not skip_fw_query:
     # Vin query only reliably works thorugh OBDII
@@ -205,18 +209,22 @@ def get_car(logcan, sendcan):
   try:
     CarInterface, CarController, CarState = interfaces[candidate]
     car_params = CarInterface.get_params(candidate, fingerprints, car_fw)
-    candidate_changed = Params().get('dp_last_candidate', encoding='utf8') != candidate
-    put_nonblocking("dp_sr_stock", str(car_params.steerRatio))
-    # update steering_ratio init val
-    dp_sr_custom = Params().get("dp_sr_custom", encoding='utf8')
-    if dp_sr_custom == '' or candidate_changed or (dp_sr_custom != '' and float(dp_sr_custom) <= 9.99):
-      put_nonblocking("dp_sr_custom", str(car_params.steerRatio))
-    # update last candidate
-    put_nonblocking('dp_last_candidate', candidate)
     car_params.carVin = vin
     car_params.carFw = car_fw
     car_params.fingerprintSource = source
     car_params.fuzzyFingerprint = not exact_match
+
+    # dp - handle sr learner memory/reset feature
+    params = Params()
+    candidate_changed = params.get('dp_last_candidate', encoding='utf8') != candidate
+    # keep stock sr
+    put_nonblocking("dp_sr_stock", str(car_params.steerRatio))
+    dp_sr_custom = params.get("dp_sr_custom", encoding='utf8')
+    # reset default sr
+    if dp_sr_custom == '' or candidate_changed or (dp_sr_custom != '' and float(dp_sr_custom) <= 9.99):
+      put_nonblocking("dp_sr_custom", str(car_params.steerRatio))
+    # update last candidate
+    put_nonblocking('dp_last_candidate', candidate)
 
     return CarInterface(car_params, CarController, CarState), car_params
   except KeyError:

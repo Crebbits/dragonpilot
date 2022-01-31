@@ -216,7 +216,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"dp_ui_blinker", PERSISTENT},
     {"dp_ui_brightness", PERSISTENT},
     {"dp_ui_volume", PERSISTENT},
-//    {"dp_lexus_rx_rpm_fix", PERSISTENT},
+    {"dp_toyota_no_min_acc_limit", PERSISTENT},
     {"dp_toyota_ldw", PERSISTENT},
     {"dp_toyota_sng", PERSISTENT},
     {"dp_toyota_zss", PERSISTENT},
@@ -230,11 +230,10 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"dp_hkg_smart_mdps", PERSISTENT},
     {"dp_honda_eps_mod", PERSISTENT},
     {"dp_honda_kmh_display", PERSISTENT},
-//    {"dp_vw_panda", PERSISTENT},
     {"dp_fan_mode", PERSISTENT},
     {"dp_last_modified", PERSISTENT},
-//    {"dp_camera_offset", PERSISTENT},
-//    {"dp_path_offset", PERSISTENT},
+    {"dp_camera_offset", PERSISTENT},
+    {"dp_path_offset", PERSISTENT},
     {"dp_locale", PERSISTENT},
     {"dp_reg", PERSISTENT},
     {"dp_sr_learner", PERSISTENT},
@@ -262,6 +261,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"dp_nav_amap_key_2", PERSISTENT},
     {"dp_nav_style_day", PERSISTENT},
     {"dp_nav_style_night", PERSISTENT},
+    {"dp_no_offroad_fix", PERSISTENT},
+    {"dp_ftpd", PERSISTENT},
 };
 
 } // namespace

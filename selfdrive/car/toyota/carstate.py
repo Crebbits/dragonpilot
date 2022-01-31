@@ -15,6 +15,8 @@ from math import floor
 DP_ACCEL_ECO = 0
 DP_ACCEL_NORMAL = 1
 DP_ACCEL_SPORT = 2
+
+
 _TRAFFIC_SINGAL_MAP = {
   1: "kph",
   36: "mph",
