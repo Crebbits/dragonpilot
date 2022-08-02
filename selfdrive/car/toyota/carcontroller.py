@@ -11,6 +11,8 @@ from common.dp_common import common_controller_ctrl
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
+STEER_FAULT_MAX_RATE = 100
+STEER_FAULT_MAX_FRAMES = 18
 
 class CarController():
   def __init__(self, dbc_name, CP, VM):
@@ -24,20 +26,22 @@ class CarController():
     self.standstill_req = False
     self.steer_rate_limited = False
 
+    self.rate_limit_counter = 0
+
     self.packer = CANPacker(dbc_name)
+    self.gas = 0
+    self.accel = 0
 
   def update(self, enabled, active, CS, frame, actuators, pcm_cancel_cmd, hud_alert,
              left_line, right_line, lead, left_lane_depart, right_lane_depart, dragonconf):
 
-    # *** compute control surfaces ***
-
     # gas and brake
-    if CS.CP.enableGasInterceptor and enabled:
+    if CS.CP.enableGasInterceptor and active:
       MAX_INTERCEPTOR_GAS = 0.5
       # RAV4 has very sensitive gas pedal
-      if CS.CP.carFingerprint in [CAR.RAV4, CAR.RAV4H, CAR.HIGHLANDER, CAR.HIGHLANDERH]:
+      if CS.CP.carFingerprint in (CAR.RAV4, CAR.RAV4H, CAR.HIGHLANDER, CAR.HIGHLANDERH):
         PEDAL_SCALE = interp(CS.out.vEgo, [0.0, MIN_ACC_SPEED, MIN_ACC_SPEED + PEDAL_TRANSITION], [0.15, 0.3, 0.0])
-      elif CS.CP.carFingerprint in [CAR.COROLLA]:
+      elif CS.CP.carFingerprint in (CAR.COROLLA,):
         PEDAL_SCALE = interp(CS.out.vEgo, [0.0, MIN_ACC_SPEED, MIN_ACC_SPEED + PEDAL_TRANSITION], [0.3, 0.4, 0.0])
       else:
         PEDAL_SCALE = interp(CS.out.vEgo, [0.0, MIN_ACC_SPEED, MIN_ACC_SPEED + PEDAL_TRANSITION], [0.4, 0.5, 0.0])
@@ -55,11 +59,22 @@ class CarController():
     self.steer_rate_limited = new_steer != apply_steer
 
     # Cut steering while we're in a known fault state (2s)
-    if not enabled or CS.steer_state in [9, 25] or abs(CS.out.steeringRateDeg) > 100 or abs(CS.out.steeringAngleDeg) > 400 or (abs(CS.out.steeringAngleDeg) > 150 and CS.CP.carFingerprint in [CAR.RAV4H, CAR.PRIUS]):
+    # EPS_STATUS->LKA_STATE either goes to 21 or 25 on rising edge of a steering fault and
+    # the value seems to describe how many frames the steering rate was above 100 deg/s, so
+    # cut torque with some margin for the lower state
+    if active and abs(CS.out.steeringRateDeg) >= STEER_FAULT_MAX_RATE:
+      self.rate_limit_counter += 1
+    else:
+      # TODO: unclear if it resets its internal state at another value
+      self.rate_limit_counter = 0
+
+    apply_steer_req = 1
+    if not active:
+    #if not active or CS.steer_state in (9, 25) or abs(CS.out.steeringRateDeg) > 100 or (abs(CS.out.steeringAngleDeg) > 150 and CS.CP.carFingerprint in [CAR.RAV4H, CAR.PRIUS]):
       apply_steer = 0
       apply_steer_req = 0
-    else:
-      apply_steer_req = 1
+    elif self.rate_limit_counter > STEER_FAULT_MAX_FRAMES:
+      apply_steer_req = 0
 
     # TODO: probably can delete this. CS.pcm_acc_status uses a different signal
     # than CS.cruiseState.enabled. confirm they're not meaningfully different
@@ -112,28 +127,30 @@ class CarController():
 
     # we can spam can to cancel the system even if we are using lat only control
     if (frame % 3 == 0 and CS.CP.openpilotLongitudinalControl) or pcm_cancel_cmd:
-      lead = lead or CS.out.vEgo < 12.    # at low speed we always assume the lead is present do ACC can be engaged
+      lead = lead or CS.out.vEgo < 12.    # at low speed we always assume the lead is present so ACC can be engaged
 
       if dragonconf.dpAtl and not dragonconf.dpAtlOpLong:
         pass
       # Lexus IS uses a different cancellation message
-      if pcm_cancel_cmd and CS.CP.carFingerprint in [CAR.LEXUS_IS, CAR.LEXUS_RC]:
+      if pcm_cancel_cmd and CS.CP.carFingerprint in (CAR.LEXUS_IS, CAR.LEXUS_RC):
         can_sends.append(create_acc_cancel_command(self.packer))
       elif CS.CP.openpilotLongitudinalControl:
         can_sends.append(create_accel_command(self.packer, pcm_accel_cmd, pcm_cancel_cmd, self.standstill_req, lead, CS.acc_type, CS.distance))
+        self.accel = pcm_accel_cmd
       else:
         can_sends.append(create_accel_command(self.packer, 0, pcm_cancel_cmd, False, lead, CS.acc_type, CS.distance))
 
-    if frame % 2 == 0 and CS.CP.enableGasInterceptor:
+    if frame % 2 == 0 and CS.CP.enableGasInterceptor and CS.CP.openpilotLongitudinalControl:
       # send exactly zero if gas cmd is zero. Interceptor will send the max between read value and gas cmd.
       # This prevents unexpected pedal range rescaling
       can_sends.append(create_gas_interceptor_command(self.packer, interceptor_gas_cmd, frame // 2))
+      self.gas = interceptor_gas_cmd
 
-    # ui mesg is at 100Hz but we send asap if:
+    # ui mesg is at 1Hz but we send asap if:
     # - there is something to display
     # - there is something to stop displaying
     fcw_alert = hud_alert == VisualAlert.fcw
-    steer_alert = hud_alert in [VisualAlert.steerRequired, VisualAlert.ldw]
+    steer_alert = hud_alert in (VisualAlert.steerRequired, VisualAlert.ldw)
 
     send_ui = False
     if ((fcw_alert or steer_alert) and not self.alert_active) or \
@@ -155,10 +172,14 @@ class CarController():
     if frame % 100 == 0 and CS.CP.enableDsu:
       can_sends.append(create_fcw_command(self.packer, fcw_alert))
 
-    #*** static msgs ***
-
+    # *** static msgs ***
     for (addr, cars, bus, fr_step, vl) in STATIC_DSU_MSGS:
       if frame % fr_step == 0 and CS.CP.enableDsu and CS.CP.carFingerprint in cars:
         can_sends.append(make_can_msg(addr, vl, bus))
 
-    return can_sends
+    new_actuators = actuators.copy()
+    new_actuators.steer = apply_steer / CarControllerParams.STEER_MAX
+    new_actuators.accel = self.accel
+    new_actuators.gas = self.gas
+
+    return new_actuators, can_sends

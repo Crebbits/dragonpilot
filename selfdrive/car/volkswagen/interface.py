@@ -1,5 +1,5 @@
 from cereal import car
-from selfdrive.car.volkswagen.values import CAR, BUTTON_STATES, CANBUS, NetworkLocation, TransmissionType, GearShifter
+from selfdrive.car.volkswagen.values import CAR, BUTTON_STATES, CANBUS, NetworkLocation, TransmissionType, GearShifter, PQ_CARS
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint, get_safety_config
 from selfdrive.car.interfaces import CarInterfaceBase
 from common.dp_common import common_interface_atl, common_interface_get_params_lqr
@@ -28,25 +28,37 @@ class CarInterface(CarInterfaceBase):
     ret.radarOffCan = True
 
     if True:  # pylint: disable=using-constant-test
-      # Set global MQB parameters
-      ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagen)]
+
       ret.enableBsm = 0x30F in fingerprint[0]  # SWA_01
 
-      if 0xAD in fingerprint[0]:  # Getriebe_11
-        ret.transmissionType = TransmissionType.automatic
-      elif 0x187 in fingerprint[0]:  # EV_Gearshift
-        ret.transmissionType = TransmissionType.direct
-      else:
-        ret.transmissionType = TransmissionType.manual
+      if candidate in PQ_CARS:
+        # Configurations shared between all PQ35/PQ46/NMS vehicles
+        ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagenPq)]
 
-      if any(msg in fingerprint[1] for msg in [0x40, 0x86, 0xB2, 0xFD]):  # Airbag_01, LWI_01, ESP_19, ESP_21
-        ret.networkLocation = NetworkLocation.gateway
+        # Determine installed network location and trans type from fingerprint
+        ret.networkLocation = NetworkLocation.fwdCamera if 0x368 in fingerprint[0] else NetworkLocation.gateway
+        if 0x440 in fingerprint[0]:  # Getriebe_1
+          ret.transmissionType = TransmissionType.automatic
+        else:  # No trans at all
+          ret.transmissionType = TransmissionType.manual
       else:
-        ret.networkLocation = NetworkLocation.fwdCamera
+        # Set global MQB parameters
+        ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagen)]
+        if 0xAD in fingerprint[0]:  # Getriebe_11
+          ret.transmissionType = TransmissionType.automatic
+        elif 0x187 in fingerprint[0]:  # EV_Gearshift
+          ret.transmissionType = TransmissionType.direct
+        else:
+          ret.transmissionType = TransmissionType.manual
+
+        if any(msg in fingerprint[1] for msg in (0x40, 0x86, 0xB2, 0xFD)):  # Airbag_01, LWI_01, ESP_19, ESP_21
+          ret.networkLocation = NetworkLocation.gateway
+        else:
+          ret.networkLocation = NetworkLocation.fwdCamera
 
     # Global lateral tuning defaults, can be overridden per-vehicle
 
-    ret.steerActuatorDelay = 0.05
+    ret.steerActuatorDelay = 0.1
     ret.steerRateCost = 1.0
     ret.steerLimitTimer = 0.4
     ret.steerRatio = 15.6  # Let the params learner figure this out
@@ -152,8 +164,13 @@ class CarInterface(CarInterfaceBase):
       ret.mass = 1505 + STD_CARGO_KG
       ret.wheelbase = 2.84
 
+    elif candidate == CAR.GENERICPQ:
+      ret.mass = 1375 + STD_CARGO_KG  # Average, varies on trim/package
+      ret.wheelbase = 2.58
+      ret.steerRatio = 15.6
+      tire_stiffness_factor = 1.0
     else:
-      raise ValueError("unsupported car %s" % candidate)
+      raise ValueError(f"unsupported car {candidate}")
 
     ret.rotationalInertia = scale_rot_inertia(ret.mass, ret.wheelbase)
     ret.centerToFront = ret.wheelbase * 0.45
@@ -181,12 +198,6 @@ class CarInterface(CarInterfaceBase):
     ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
-    # TODO: add a field for this to carState, car interface code shouldn't write params
-    # Update the device metric configuration to match the car at first startup,
-    # or if there's been a change.
-    #if self.CS.displayMetricUnits != self.displayMetricUnitsPrev:
-    #  put_nonblocking("IsMetric", "1" if self.CS.displayMetricUnits else "0")
-
     # Check for and process state-change events (button press or release) from
     # the turn stalk switch or ACC steering wheel/control stalk buttons.
     for button in self.CS.buttonStates:
@@ -201,7 +212,7 @@ class CarInterface(CarInterfaceBase):
     # Vehicle health and operation safety checks
     if self.CS.parkingBrakeSet:
       events.add(EventName.parkBrake)
-    if self.CS.tsk_status in [6, 7]:
+    if self.CS.tsk_status in (6, 7):
       events.add(EventName.accFaulted)
 
     # Low speed steer alert hysteresis logic
@@ -223,12 +234,13 @@ class CarInterface(CarInterfaceBase):
     return self.CS.out
 
   def apply(self, c):
-    can_sends = self.CC.update(c.enabled, self.CS, self.frame, self.ext_bus, c.actuators,
-                   c.hudControl.visualAlert,
-                   c.hudControl.leftLaneVisible,
-                   c.hudControl.rightLaneVisible,
-                   c.hudControl.leftLaneDepart,
-                   c.hudControl.rightLaneDepart,
-                               self.dragonconf)
+    hud_control = c.hudControl
+    ret = self.CC.update(c, c.enabled, self.CS, self.frame, self.ext_bus, c.actuators,
+                         hud_control.visualAlert,
+                         hud_control.leftLaneVisible,
+                         hud_control.rightLaneVisible,
+                         hud_control.leftLaneDepart,
+                         hud_control.rightLaneDepart,
+                         self.dragonconf)
     self.frame += 1
-    return can_sends
+    return ret

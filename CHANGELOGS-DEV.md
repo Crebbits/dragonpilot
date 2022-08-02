@@ -1,3 +1,10 @@
+dragonpilot 0.8.13-1
+========================
+* Based on openpilot 0.8.13 devel.
+* ADDED: Support for SDSU. Can now control distance with the button on the steering wheel. (Thanks to @CT9212)
+* FIXED: DLP fix. (Thank to @Hikari1023)
+* Bug fixes.
+
 dragonpilot 0.8.12-3
 ========================
 * Bug fixes.

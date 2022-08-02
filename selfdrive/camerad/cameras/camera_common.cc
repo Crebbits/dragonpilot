@@ -19,6 +19,7 @@
 #include "selfdrive/hardware/hw.h"
 
 #ifdef QCOM
+#include "CL/cl_ext_qcom.h"
 #include "selfdrive/camerad/cameras/camera_qcom.h"
 #elif QCOM2
 #include "selfdrive/camerad/cameras/camera_qcom2.h"
@@ -30,11 +31,14 @@
 #include "selfdrive/camerad/cameras/camera_replay.h"
 #endif
 
+ExitHandler do_exit;
+
 class Debayer {
 public:
   Debayer(cl_device_id device_id, cl_context context, const CameraBuf *b, const CameraState *s) {
     char args[4096];
     const CameraInfo *ci = &s->ci;
+    hdr_ = ci->hdr;
     snprintf(args, sizeof(args),
              "-cl-fast-relaxed-math -cl-denorms-are-zero "
              "-DFRAME_WIDTH=%d -DFRAME_HEIGHT=%d -DFRAME_STRIDE=%d "
@@ -61,9 +65,20 @@ public:
       CL_CHECK(clSetKernelArg(krnl_, 2, localMemSize, 0));
       CL_CHECK(clEnqueueNDRangeKernel(q, krnl_, 2, NULL, globalWorkSize, localWorkSize, 0, 0, debayer_event));
     } else {
-      const size_t debayer_work_size = height;  // doesn't divide evenly, is this okay?
-      CL_CHECK(clSetKernelArg(krnl_, 2, sizeof(float), &gain));
-      CL_CHECK(clEnqueueNDRangeKernel(q, krnl_, 1, NULL, &debayer_work_size, NULL, 0, 0, debayer_event));
+      if (hdr_) {
+        // HDR requires a 1-D kernel due to the DPCM compression
+        const size_t debayer_local_worksize = 128;
+        const size_t debayer_work_size = height;  // doesn't divide evenly, is this okay?
+        CL_CHECK(clSetKernelArg(krnl_, 2, sizeof(float), &gain));
+        CL_CHECK(clEnqueueNDRangeKernel(q, krnl_, 1, NULL, &debayer_work_size, &debayer_local_worksize, 0, 0, debayer_event));
+      } else {
+        const int debayer_local_worksize = 32;
+        assert(width % 2 == 0);
+        const size_t globalWorkSize[] = {size_t(height), size_t(width / 2)};
+        const size_t localWorkSize[] = {debayer_local_worksize, debayer_local_worksize};
+        CL_CHECK(clSetKernelArg(krnl_, 2, sizeof(float), &gain));
+        CL_CHECK(clEnqueueNDRangeKernel(q, krnl_, 2, NULL, globalWorkSize, localWorkSize, 0, 0, debayer_event));
+      }
     }
   }
 
@@ -73,6 +88,7 @@ public:
 
 private:
   cl_kernel krnl_;
+    bool hdr_;
 };
 
 void CameraBuf::init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt, VisionStreamType init_rgb_type, VisionStreamType init_yuv_type, release_cb init_release_callback) {
@@ -202,7 +218,6 @@ void fill_frame_data(cereal::FrameData::Builder &framed, const FrameMetadata &fr
   framed.setMeasuredGreyFraction(frame_data.measured_grey_fraction);
   framed.setTargetGreyFraction(frame_data.target_grey_fraction);
   framed.setLensPos(frame_data.lens_pos);
-  framed.setLensSag(frame_data.lens_sag);
   framed.setLensErr(frame_data.lens_err);
   framed.setLensTruePos(frame_data.lens_true_pos);
 }
@@ -342,8 +357,6 @@ float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip
   return lum_med / 256.0;
 }
 
-extern ExitHandler do_exit;
-
 void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
   const char *thread_name = nullptr;
   if (cs == &cameras->road_cam) {
@@ -424,4 +437,32 @@ void common_process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) 
     framed.setImage(get_frame_image(&c->buf));
   }
   s->pm->send("driverCameraState", msg);
+}
+
+
+void camerad_thread() {
+  #ifdef XNX
+  cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_GPU);
+  #else
+  cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+  #endif
+   // TODO: do this for QCOM2 too
+#if defined(QCOM)
+  const cl_context_properties props[] = {CL_CONTEXT_PRIORITY_HINT_QCOM, CL_PRIORITY_HINT_HIGH_QCOM, 0};
+  cl_context context = CL_CHECK_ERR(clCreateContext(props, 1, &device_id, NULL, NULL, &err));
+#else
+  cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+#endif
+
+  MultiCameraState cameras = {};
+  VisionIpcServer vipc_server("camerad", device_id, context);
+
+  cameras_init(&vipc_server, &cameras, device_id, context);
+  cameras_open(&cameras);
+
+  vipc_server.start_listener();
+
+  cameras_run(&cameras);
+
+  CL_CHECK(clReleaseContext(context));
 }

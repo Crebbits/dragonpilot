@@ -22,7 +22,7 @@ class CarInterface(CarInterfaceBase):
       ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.subaru)]
       ret.enableBsm = 0x228 in fingerprint[0]
 
-    #ret.dashcamOnly = candidate in PREGLOBAL_CARS
+    ret.dashcamOnly = candidate in PREGLOBAL_CARS
 
     ret.steerRateCost = 0.7
     ret.steerLimitTimer = 0.4
@@ -48,16 +48,14 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.2, 0.3], [0.02, 0.03]]
 
     if candidate == CAR.IMPREZA_2020:
-      ret.safetyConfigs[0].safetyParam = 1 # lower max_steer for 2020
       ret.mass = 1480. + STD_CARGO_KG
       ret.wheelbase = 2.67
       ret.centerToFront = ret.wheelbase * 0.5
-      ret.steerRatio = 13
-      ret.steerActuatorDelay = 0.1   # end-to-end angle controller
-      ret.steerRateCost = 1
-      ret.lateralTuning.pid.kf = 0.00003
-      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 10., 20., 30.], [0., 10., 20., 30.]]
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.01, 0.05, 0.2, 0.21], [0.0010, 0.004, 0.008, 0.009]]
+      ret.steerRatio = 17           # learned, 14 stock
+      ret.steerActuatorDelay = 0.1
+      ret.lateralTuning.pid.kf = 0.00005
+      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 14., 23.], [0., 14., 23.]]
+      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.045, 0.042, 0.20], [0.04, 0.035, 0.045]]
 
     if candidate == CAR.FORESTER:
       ret.mass = 1568. + STD_CARGO_KG
@@ -69,7 +67,7 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 14., 23.], [0., 14., 23.]]
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.01, 0.065, 0.2], [0.001, 0.015, 0.025]]
 
-    if candidate in [CAR.FORESTER_PREGLOBAL, CAR.OUTBACK_PREGLOBAL_2018]:
+    if candidate in (CAR.FORESTER_PREGLOBAL, CAR.OUTBACK_PREGLOBAL_2018):
       ret.safetyConfigs[0].safetyParam = 1  # Outback 2018-2019 and Forester have reversed driver torque signal
       ret.mass = 1568 + STD_CARGO_KG
       ret.wheelbase = 2.67
@@ -80,17 +78,6 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 10., 20.], [0., 10., 20.]]
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.01, 0.05, 0.2], [0.003, 0.018, 0.025]]
 
-    if candidate == CAR.WRX_PREGLOBAL:
-      ret.safetyConfigs[0].safetyParam = 1  # WRX has reversed driver torque signal
-      ret.mass = 1568 + STD_CARGO_KG
-      ret.wheelbase = 2.67
-      ret.centerToFront = ret.wheelbase * 0.5
-      ret.steerRatio = 12.5   # 14.5 stock
-      ret.steerActuatorDelay = 0.15
-      ret.lateralTuning.pid.kf = 0.00005
-      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 20.], [0., 20.]]
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.1, 0.2], [0.01, 0.02]]
-
     if candidate == CAR.LEGACY_PREGLOBAL:
       ret.mass = 1568 + STD_CARGO_KG
       ret.wheelbase = 2.67
@@ -100,28 +87,6 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kf = 0.00005
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 20.], [0., 20.]]
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.1, 0.2], [0.01, 0.02]]
-
-    if candidate == CAR.LEGACY_PREGLOBAL_2018:
-      ret.safetyConfigs[0].safetyParam = 1  # Legacy 2018-2019 has reversed driver torque signal
-      ret.mass = 1568 + STD_CARGO_KG
-      ret.wheelbase = 2.67
-      ret.centerToFront = ret.wheelbase * 0.5
-      ret.steerRatio = 12.5   # 14.5 stock
-      ret.steerActuatorDelay = 0.15
-      ret.lateralTuning.pid.kf = 0.00005
-      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 20.], [0., 20.]]
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.1, 0.2], [0.01, 0.02]]
-
-    if candidate == CAR.LEVORG_PREGLOBAL:
-       ret.safetyConfigs[0].safetyParam = 1  # Levorg has reversed driver torque signal
-       ret.mass = 1568 + STD_CARGO_KG
-       ret.wheelbase = 2.67
-       ret.centerToFront = ret.wheelbase * 0.5
-       ret.steerRatio = 12.5   # 14.5 stock
-       ret.steerActuatorDelay = 0.15
-       ret.lateralTuning.pid.kf = 0.00005
-       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 20.], [0., 20.]]
-       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.1, 0.2], [0.01, 0.02]]
 
     if candidate == CAR.OUTBACK_PREGLOBAL:
       ret.mass = 1568 + STD_CARGO_KG
@@ -164,8 +129,9 @@ class CarInterface(CarInterfaceBase):
     return self.CS.out
 
   def apply(self, c):
-    can_sends = self.CC.update(c.enabled, self.CS, self.frame, c.actuators,
-                               c.cruiseControl.cancel, c.hudControl.visualAlert,
-                               c.hudControl.leftLaneVisible, c.hudControl.rightLaneVisible, c.hudControl.leftLaneDepart, c.hudControl.rightLaneDepart, self.dragonconf)
+    hud_control = c.hudControl
+    ret = self.CC.update(c, c.enabled, self.CS, self.frame, c.actuators,
+                         c.cruiseControl.cancel, hud_control.visualAlert,
+                         hud_control.leftLaneVisible, hud_control.rightLaneVisible, hud_control.leftLaneDepart, hud_control.rightLaneDepart, self.dragonconf)
     self.frame += 1
-    return can_sends
+    return ret

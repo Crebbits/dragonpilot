@@ -49,7 +49,6 @@ class CarInterface(CarInterfaceBase):
       ret.openpilotLongitudinalControl = True
 
       ret.pcmCruise = not ret.enableGasInterceptor
-      ret.communityFeature = ret.enableGasInterceptor
 
     ret.enableBsm = True
     #if candidate in (CAR.CRV_5G, CAR.CRV_HYBRID, ):
@@ -230,7 +229,7 @@ class CarInterface(CarInterfaceBase):
       ret.centerToFront = ret.wheelbase * 0.41
       ret.steerRatio = 11.95  # as spec
       ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 3840], [0, 3840]]
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.6], [0.18]]
+      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.2], [0.06]]
       tire_stiffness_factor = 0.677
 
     elif candidate == CAR.ODYSSEY:
@@ -253,17 +252,7 @@ class CarInterface(CarInterfaceBase):
       tire_stiffness_factor = 0.82
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.28], [0.08]]
 
-    elif candidate in (CAR.PILOT, CAR.PILOT_2019):
-      stop_and_go = False
-      ret.mass = 4204. * CV.LB_TO_KG + STD_CARGO_KG  # average weight
-      ret.wheelbase = 2.82
-      ret.centerToFront = ret.wheelbase * 0.428
-      ret.steerRatio = 17.25  # as spec
-      ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 4096], [0, 4096]]  # TODO: determine if there is a dead zone at the top end
-      tire_stiffness_factor = 0.444
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.38], [0.11]]
-
-    elif candidate == CAR.PASSPORT:
+    elif candidate in (CAR.PILOT, CAR.PASSPORT):
       stop_and_go = False
       ret.mass = 4204. * CV.LB_TO_KG + STD_CARGO_KG  # average weight
       ret.wheelbase = 2.82
@@ -318,7 +307,7 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kiV = [0.18, 0.12]
 
     else:
-      raise ValueError("unsupported car %s" % candidate)
+      raise ValueError(f"unsupported car {candidate}")
 
     # These cars use alternate user brake msg (0x1BE)
     if candidate in HONDA_BOSCH_ALT_BRAKE_SIGNAL:
@@ -393,7 +382,6 @@ class CarInterface(CarInterfaceBase):
     ret.cruiseState.enabled = common_interface_atl(ret, dragonconf.dpAtl)
     ret.lkMode = self.CS.lkMode
     ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and (self.cp_body is None or self.cp_body.can_valid)
-    ret.yawRate = self.VM.yaw_rate(ret.steeringAngleDeg * CV.DEG_TO_RAD, ret.vEgo)
 
     #dp
     ret.engineRPM = self.CS.engineRPM
@@ -478,7 +466,7 @@ class CarInterface(CarInterfaceBase):
     for b in ret.buttonEvents:
 
       # do enable on both accel and decel buttons
-      if b.type in [ButtonType.accelCruise, ButtonType.decelCruise] and not b.pressed:
+      if b.type in (ButtonType.accelCruise, ButtonType.decelCruise) and not b.pressed:
         if not self.CP.pcmCruise:
           events.add(EventName.buttonEnable)
 
@@ -494,19 +482,20 @@ class CarInterface(CarInterfaceBase):
   # pass in a car.CarControl
   # to be called @ 100hz
   def apply(self, c):
-    if c.hudControl.speedVisible:
-      hud_v_cruise = c.hudControl.setSpeed * CV.MS_TO_KPH
+    hud_control = c.hudControl
+    if hud_control.speedVisible:
+      hud_v_cruise = hud_control.setSpeed * CV.MS_TO_KPH
     else:
       hud_v_cruise = 255
 
-    can_sends = self.CC.update(c.enabled, c.active, self.CS, self.frame,
-                               c.actuators,
-                               c.cruiseControl.cancel,
-                               hud_v_cruise,
-                               c.hudControl.lanesVisible,
-                               self.dragonconf,
-                               hud_show_car=c.hudControl.leadVisible,
-                               hud_alert=c.hudControl.visualAlert)
+    ret = self.CC.update(c.enabled, c.active, self.CS, self.frame,
+                         c.actuators,
+                         c.cruiseControl.cancel,
+                         hud_v_cruise,
+                         hud_control.lanesVisible,
+                         self.dragonconf,
+                         hud_show_car=hud_control.leadVisible,
+                         hud_alert=hud_control.visualAlert)
 
     self.frame += 1
-    return can_sends
+    return ret

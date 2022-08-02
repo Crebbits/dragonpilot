@@ -1286,21 +1286,7 @@ static void parse_autofocus(CameraState *s, uint8_t *d) {
   s->focus_err = max_focus*1.0;
 }
 
-static std::optional<float> get_accel_z(SubMaster *sm) {
-  sm->update(0);
-  if(sm->updated("sensorEvents")) {
-    for (auto event : (*sm)["sensorEvents"].getSensorEvents()) {
-      if (event.which() == cereal::SensorEventData::ACCELERATION) {
-        if (auto v = event.getAcceleration().getV(); v.size() >= 3)
-          return -v[2];
-        break;
-      }
-    }
-  }
-  return std::nullopt;
-}
-
-static void do_autofocus(CameraState *s, SubMaster *sm) {
+static void do_autofocus(CameraState *s) {
   const int dac_down = s->device == DEVICE_LP3 ? LP3_AF_DAC_DOWN : OP3T_AF_DAC_DOWN;
   const int dac_up = s->device == DEVICE_LP3 ? LP3_AF_DAC_UP : OP3T_AF_DAC_UP;
 
@@ -1311,23 +1297,11 @@ static void do_autofocus(CameraState *s, SubMaster *sm) {
     lens_true_pos -= s->focus_err*focus_kp;
   }
 
-  if (auto accel_z = get_accel_z(sm)) {
-    s->last_sag_acc_z = *accel_z;
-  }
-  const float sag = (s->last_sag_acc_z / 9.8) * 128;
   // stay off the walls
   lens_true_pos = std::clamp(lens_true_pos, float(dac_down), float(dac_up));
-  int target = std::clamp(lens_true_pos - sag, float(dac_down), float(dac_up));
+  //int target = std::clamp(lens_true_pos, float(dac_down), float(dac_up));
   s->lens_true_pos.store(lens_true_pos);
-
-  /*char debug[4096];
-  char *pdebug = debug;
-  pdebug += sprintf(pdebug, "focus ");
-  for (int i = 0; i < NUM_FOCUS; i++) pdebug += sprintf(pdebug, "%2x(%4d) ", s->confidence[i], s->focus[i]);
-  pdebug += sprintf(pdebug, "  err: %7.2f  offset: %6.2f sag: %6.2f lens_true_pos: %6.2f  cur_lens_pos: %4d->%4d", err * focus_kp, offset, sag, s->lens_true_pos, s->cur_lens_pos, target);
-  LOGD(debug);*/
-
-  actuator_move(s, target);
+  actuator_move(s, lens_true_pos);
 }
 
 void camera_autoexposure(CameraState *s, float grey_frac) {
@@ -1488,12 +1462,11 @@ static void ops_thread(MultiCameraState *s) {
   CameraExpInfo driver_cam_op;
 
   util::set_thread_name("camera_settings");
-  SubMaster sm({"sensorEvents"});
   while(!do_exit) {
     road_cam_op = road_cam_exp.load();
     if (road_cam_op.op_id != last_road_cam_op_id) {
       do_autoexposure(&s->road_cam, road_cam_op.grey_frac);
-      do_autofocus(&s->road_cam, &sm);
+      do_autofocus(&s->road_cam);
       last_road_cam_op_id = road_cam_op.op_id;
     }
 
@@ -1612,7 +1585,6 @@ void cameras_run(MultiCameraState *s) {
             .frame_length = (uint32_t)c->frame_length,
             .integ_lines = (uint32_t)c->cur_integ_lines,
             .lens_pos = c->cur_lens_pos,
-            .lens_sag = c->last_sag_acc_z,
             .lens_err = c->focus_err,
             .lens_true_pos = c->lens_true_pos,
             .gain = c->cur_gain_frac,

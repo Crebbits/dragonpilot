@@ -4,6 +4,7 @@ import numpy as np
 from common.numpy_fast import interp
 
 import cereal.messaging as messaging
+from common.filter_simple import FirstOrderFilter
 from common.realtime import DT_MDL
 from selfdrive.modeld.constants import T_IDXS
 from selfdrive.config import Conversions as CV
@@ -38,16 +39,16 @@ DP_ACCEL_ECO = 0
 DP_ACCEL_NORMAL = 1
 DP_ACCEL_SPORT = 2
 
-# accel profile by @arne182 modified by @wer5lcy
-_DP_CRUISE_MIN_V = [-2.0, -1.8, -1.6, -1.4, -1.2]
-_DP_CRUISE_MIN_V_ECO = [-2.0, -1.6, -1.4, -1.2, -1.0]
-_DP_CRUISE_MIN_V_SPORT = [-3.0, -2.6, -2.3, -2.0, -1.0]
-_DP_CRUISE_MIN_BP = [0.0, 5.0, 10.0, 20.0, 55.0]
+# accel profile by @arne182 modified by cgw
+_DP_CRUISE_MIN_V = [-0.05, -0.1, -0.3, -0.4, -0.4, -0.23, -0.1]
+_DP_CRUISE_MIN_V_ECO = [-0.01, -0.1, -0.2, -0.3 -0.4, -0.2, -0.09]
+_DP_CRUISE_MIN_V_SPORT = [-0.1, -0.2, -0.4, -0.5, -0.5, -0.25, -0.1]
+_DP_CRUISE_MIN_BP = [0.0, 3.0, 5.0, 20.0, 33.3, 40.0, 55.0]
 
-_DP_CRUISE_MAX_V = [1.6, 1.4, 1.0, 0.6, 0.3]
-_DP_CRUISE_MAX_V_ECO = [1.5, 1.3, 0.8, 0.4, 0.2]
-_DP_CRUISE_MAX_V_SPORT = [3.0, 3.5, 3.0, 2.0, 2.0]
-_DP_CRUISE_MAX_BP = [0., 5., 10., 20., 55.]
+_DP_CRUISE_MAX_V = [3.5, 1.7, 1.31, 0.95, 0.77, 0.67, 0.55, 0.47, 0.31, 0.13]
+_DP_CRUISE_MAX_V_ECO = [3.5, 1.65, 1.25, 0.85, 0.65, 0.55, 0.45, 0.42, 0.24, 0.09]
+_DP_CRUISE_MAX_V_SPORT = [3.5, 3.5, 2.5, 1.5, 2.0, 2.0, 2.0, 1.5, 1.0, 0.5]
+_DP_CRUISE_MAX_BP = [0., 3, 6., 8., 11., 15., 20., 25., 30., 55.]
 
 def dp_calc_cruise_accel_limits(v_ego, dp_profile):
   if dp_profile == DP_ACCEL_ECO:
@@ -85,9 +86,8 @@ class Planner:
 
     self.fcw = False
 
-    self.v_desired = init_v
     self.a_desired = init_a
-    self.alpha = np.exp(-DT_MDL / 2.0)
+    self.v_desired_filter = FirstOrderFilter(init_v, 2.0, DT_MDL)
 
     self.v_desired_trajectory = np.zeros(CONTROL_N)
     self.a_desired_trajectory = np.zeros(CONTROL_N)
@@ -124,18 +124,18 @@ class Planner:
     prev_accel_constraint = True
     disabled = long_control_state == LongCtrlState.off or sm['carState'].gasPressed
     if disabled:
-      self.v_desired = v_ego
+      self.v_desired_filter.x = v_ego
       self.a_desired = a_ego
       # Smoothly changing between accel trajectory is only relevant when OP is driving
       prev_accel_constraint = False
 
     # Prevent divergence, smooth in current v_ego
-    self.v_desired = self.alpha * self.v_desired + (1 - self.alpha) * v_ego
-    self.v_desired = max(0.0, self.v_desired)
+    self.v_desired_filter.x = max(0.0, self.v_desired_filter.update(v_ego))
 
     # Get acceleration and active solutions for custom long mpc.
-    self.cruise_source, a_min_sol, v_cruise_sol = self.cruise_solutions(not disabled, self.v_desired, self.a_desired,
-                                                                        v_cruise, sm)
+    self.cruise_source, a_min_sol, v_cruise_sol = self.cruise_solutions(not disabled, self.v_desired_filter.x,
+                                                                        self.a_desired, v_cruise, sm)
+
 
     if not self.dp_accel_profile_ctrl:
       accel_limits = [A_CRUISE_MIN, get_max_accel(v_ego)]
@@ -151,7 +151,7 @@ class Planner:
     accel_limits_turns[0] = min(accel_limits_turns[0], self.a_desired + 0.05, a_min_sol)
     accel_limits_turns[1] = max(accel_limits_turns[1], self.a_desired - 0.05)
     self.mpc.set_accel_limits(accel_limits_turns[0], accel_limits_turns[1])
-    self.mpc.set_cur_state(self.v_desired, self.a_desired)
+    self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)
     self.mpc.update(sm['carState'], sm['radarState'], v_cruise_sol, prev_accel_constraint=prev_accel_constraint)
     #self.mpc.set_desired_TR(DP_FOLLOWING_DIST[self.dp_following_profile])
     self.v_desired_trajectory = np.interp(T_IDXS[:CONTROL_N], T_IDXS_MPC, self.mpc.v_solution)
@@ -166,7 +166,7 @@ class Planner:
     # Interpolate 0.05 seconds and save as starting point for next iteration
     a_prev = self.a_desired
     self.a_desired = float(interp(DT_MDL, T_IDXS[:CONTROL_N], self.a_desired_trajectory))
-    self.v_desired = self.v_desired + DT_MDL * (self.a_desired + a_prev) / 2.0
+    self.v_desired_filter.x = self.v_desired_filter.x + DT_MDL * (self.a_desired + a_prev) / 2.0
 
   def publish(self, sm, pm):
     plan_send = messaging.new_message('longitudinalPlan')
@@ -177,13 +177,15 @@ class Planner:
     longitudinalPlan.modelMonoTime = sm.logMonoTime['modelV2']
     longitudinalPlan.processingDelay = (plan_send.logMonoTime / 1e9) - sm.logMonoTime['modelV2']
 
-    longitudinalPlan.speeds = [float(x) for x in self.v_desired_trajectory]
-    longitudinalPlan.accels = [float(x) for x in self.a_desired_trajectory]
-    longitudinalPlan.jerks = [float(x) for x in self.j_desired_trajectory]
+    longitudinalPlan.speeds = self.v_desired_trajectory.tolist()
+    longitudinalPlan.accels = self.a_desired_trajectory.tolist()
+    longitudinalPlan.jerks = self.j_desired_trajectory.tolist()
 
     longitudinalPlan.hasLead = sm['radarState'].leadOne.status
     longitudinalPlan.longitudinalPlanSource = self.mpc.source if self.mpc.source != 'cruise' else self.cruise_source
     longitudinalPlan.fcw = self.fcw
+
+    longitudinalPlan.solverExecutionTime = self.mpc.solve_time
 
     longitudinalPlan.visionTurnControllerState = self.vision_turn_controller.state
     longitudinalPlan.visionTurnSpeed = float(self.vision_turn_controller.v_turn)

@@ -22,7 +22,6 @@ struct InitData {
   kernelVersion @15 :Text;
   osVersion @18 :Text;
 
-  gctx @1 :Text;
   dongleId @2 :Text;
 
   deviceType @3 :DeviceType;
@@ -57,6 +56,7 @@ struct InitData {
   }
 
   # ***** deprecated stuff *****
+  gctxDEPRECATED @1 :Text;
   androidBuildInfo @5 :AndroidBuildInfo;
   androidSensorsDEPRECATED @6 :List(AndroidSensor);
   chffrAndroidExtraDEPRECATED @7 :ChffrAndroidExtra;
@@ -392,12 +392,14 @@ struct PandaState @0xa7649e2575e4591e {
   ignitionCan @13 :Bool;
   safetyModel @14 :Car.CarParams.SafetyModel;
   safetyParam @20 :Int16;
+  unsafeMode @23 :Int16;
   faultStatus @15 :FaultStatus;
   powerSaveEnabled @16 :Bool;
   uptime @17 :UInt32;
   faults @18 :List(FaultType);
   harnessStatus @21 :HarnessStatus;
   heartbeatLost @22 :Bool;
+  blockedCnt @24 :UInt32;
 
   enum FaultStatus {
     none @0;
@@ -828,19 +830,21 @@ struct LongitudinalPlan @0xe00b5b3eba12876c {
   speeds @33 :List(Float32);
   jerks @34 :List(Float32);
   #mapd
-  visionTurnControllerState @35 :VisionTurnControllerState;
-  visionTurnSpeed @36 :Float32;
+  visionTurnControllerState @36 :VisionTurnControllerState;
+  visionTurnSpeed @37 :Float32;
 
-  speedLimitControlState @37 :SpeedLimitControlState;
-  speedLimit @38 :Float32;
-  speedLimitOffset @39 :Float32;
-  distToSpeedLimit @40 :Float32;
-  isMapSpeedLimit @41 :Bool;
+  speedLimitControlState @38 :SpeedLimitControlState;
+  speedLimit @39 :Float32;
+  speedLimitOffset @40 :Float32;
+  distToSpeedLimit @41 :Float32;
+  isMapSpeedLimit @42 :Bool;
 
-  distToTurn @42 :Float32;
-  turnSpeed @43 :Float32;
-  turnSpeedControlState @44 :SpeedLimitControlState;
-  turnSign @45 :Int16;
+  distToTurn @43 :Float32;
+  turnSpeed @44 :Float32;
+  turnSpeedControlState @45 :SpeedLimitControlState;
+  turnSign @46 :Int16;
+
+  solverExecutionTime @35 :Float32;
 
   enum LongitudinalPlanSource {
     cruise @0;
@@ -910,8 +914,8 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
   dPathPoints @20 :List(Float32);
   dProb @21 :Float32;
   #mapd
-  dPathWLinesX @32 :List(Float32);
-  dPathWLinesY @33 :List(Float32);
+  dPathWLinesX @33 :List(Float32);
+  dPathWLinesY @34 :List(Float32);
 
   mpcSolutionValid @9 :Bool;
   desire @17 :Desire;
@@ -924,10 +928,11 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
   curvatures @27 :List(Float32);
   curvatureRates @28 :List(Float32);
 
+  solverExecutionTime @30 :Float32;
   # dp
-  dpALCAStartIn @30 :Float32;
-  dpLaneLessModeIsE2E @31 :Bool;
-  # 32~33 are being used in mapd
+  dpALCAStartIn @31 :Float32;
+  dpLaneLessModeIsE2E @32 :Bool;
+  # 33~34 are being used in mapd
 
   enum Desire {
     none @0;
@@ -1364,6 +1369,7 @@ struct LiveParametersData {
   angleOffsetAverageStd @11 :Float32;
   stiffnessFactorStd @12 :Float32;
   steerRatioStd @13 :Float32;
+  roll @14 :Float32;
 }
 
 struct LiveMapDataDEPRECATED {
@@ -1524,6 +1530,7 @@ struct Event {
     clocks @35 :Clocks;
     deviceState @6 :DeviceState;
     logMessage @18 :Text;
+    errorLogMessage @85 :Text;
 
     # navigation
     navInstruction @82 :NavInstruction;
@@ -1571,7 +1578,7 @@ struct Event {
     gpsLocationDEPRECATED @21 :GpsLocationData;
     uiLayoutStateDEPRECATED @57 :Legacy.UiLayoutState;
     pandaStateDEPRECATED @12 :PandaState;
-    dragonConf @85 :Dp.DragonConf;
-    liveMapData @86 :Dp.LiveMapData;
+    dragonConf @86 :Dp.DragonConf;
+    liveMapData @87 :Dp.LiveMapData;
   }
 }
