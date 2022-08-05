@@ -12,7 +12,7 @@ from common.dp_common import common_controller_ctrl
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
 STEER_FAULT_MAX_RATE = 100
-STEER_FAULT_MAX_FRAMES = 18
+STEER_FAULT_MAX_FRAMES = 19
 
 class CarController():
   def __init__(self, dbc_name, CP, VM):
@@ -75,6 +75,7 @@ class CarController():
       apply_steer_req = 0
     elif self.rate_limit_counter > STEER_FAULT_MAX_FRAMES:
       apply_steer_req = 0
+      self.rate_limit_counter = 0
 
     # TODO: probably can delete this. CS.pcm_acc_status uses a different signal
     # than CS.cruiseState.enabled. confirm they're not meaningfully different
