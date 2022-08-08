@@ -333,7 +333,7 @@ class LongitudinalMpc:
     self.cruise_min_a = min_a
     self.cruise_max_a = max_a
 
- def update_TF(self, carstate):
+  def update_TF(self, carstate):
     if carstate.distanceLines == 1: # Traffic
       # At slow speeds more time, decrease time up to 60mph
       # in mph ~= 5     10   15   20  25     30    35     40  45     50    55     60  65     70    75     80  85     90
